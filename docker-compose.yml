@@ -1,0 +1,18 @@
+version: '3.1'
+
+volumes:
+  roomy-db:
+    name: roomy-db
+
+services:
+  postgres:
+    image: postgres:15.1
+    restart: always
+    ports:
+      - 5432:5432
+    environment:
+      - DEBUG=1
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    volumes:
+      - roomy-db:/var/lib/postgresql/data
