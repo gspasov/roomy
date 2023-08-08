@@ -12,15 +12,15 @@ defmodule Roomy.Bus do
   #          API           #
   # ====================== #
 
-  @spec join(topic :: String.t()) :: :ok
-  def join(topic) do
+  @spec subscribe(topic :: String.t()) :: :ok
+  def subscribe(topic) do
     topic
     |> name()
     |> :pg.join(self())
   end
 
-  @spec leave(topic :: String.t()) :: :ok
-  def leave(topic) do
+  @spec unsubscribe(topic :: String.t()) :: :ok
+  def unsubscribe(topic) do
     topic
     |> name()
     |> :pg.leave(self())
@@ -31,7 +31,7 @@ defmodule Roomy.Bus do
     Logger.debug("[#{__MODULE__}] publishing to [#{topic}] #{message}")
 
     :pg.which_groups()
-    |> Enum.filter(fn {_module, join_topic} -> match(join_topic, topic) end)
+    |> Enum.filter(fn {_module, subscribe_topic} -> match(subscribe_topic, topic) end)
     |> tap(fn groups_receiving_message ->
       topics_receiving_message = Enum.map(groups_receiving_message, fn {_, topic} -> topic end)
       Logger.debug("[#{__MODULE__}] sending message to: #{inspect(topics_receiving_message)}")
@@ -44,16 +44,16 @@ defmodule Roomy.Bus do
   #       Internals        #
   # ====================== #
 
-  @spec match(join_topic :: String.t(), publish_topic :: String.t()) :: boolean()
-  defp match(join_topic, publish_topic) do
+  @spec match(subscribe_topic :: String.t(), publish_topic :: String.t()) :: boolean()
+  defp match(subscribe_topic, publish_topic) do
     do_match(
-      String.split(join_topic, @topic_level_separator, trim: true),
+      String.split(subscribe_topic, @topic_level_separator, trim: true),
       String.split(publish_topic, @topic_level_separator, trim: true)
     )
   end
 
   @spec do_match([String.t()], [String.t()]) :: boolean()
-  defp do_match(join_levels, publish_levels)
+  defp do_match(subscribe_levels, publish_levels)
 
   defp do_match([@multi_level | _], _) do
     true
