@@ -23,26 +23,8 @@ defmodule Roomy.Models.FriendRequestStatus do
 
   def changeset(%__MODULE__{} = friend_request_status, %__MODULE__.Create{} = attrs) do
     friend_request_status
-    |> cast(attrs, @fields)
+    |> cast(Map.from_struct(attrs), @fields)
     |> validate_required(@fields)
-  end
-
-  defmacro pending do
-    quote do
-      "pending"
-    end
-  end
-
-  defmacro rejected do
-    quote do
-      "rejected"
-    end
-  end
-
-  defmacro accepted do
-    quote do
-      "accepted"
-    end
   end
 
   def create(%__MODULE__.Create{} = attrs) do

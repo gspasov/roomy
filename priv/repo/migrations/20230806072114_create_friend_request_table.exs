@@ -2,7 +2,7 @@ defmodule Roomy.Repo.Migrations.CreateFriendRequestTable do
   use Ecto.Migration
 
   alias Roomy.Repo
-  alias Roomy.Models.FriendRequestStatus
+  alias Roomy.Constants.FriendRequestStatus
 
   require FriendRequestStatus
 

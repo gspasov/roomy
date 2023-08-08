@@ -5,7 +5,7 @@ defmodule Roomy.Models.FriendRequestTest do
   alias Roomy.Account
   alias Roomy.Models.User
   alias Roomy.Models.FriendRequest
-  alias Roomy.Models.FriendRequestStatus
+  alias Roomy.Constants.FriendRequestStatus
 
   require FriendRequestStatus
 

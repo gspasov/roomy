@@ -1,17 +1,14 @@
 defmodule Roomy.Account do
   @moduledoc false
 
-  import Ecto.Query
-
-  alias Roomy.Models.FriendRequestStatus
   alias Roomy.Repo
   alias Roomy.Request
   alias Roomy.Models.User
   alias Roomy.Models.Room
-  alias Roomy.Models.Message
   alias Roomy.Models.FriendRequest
   alias Roomy.Models.UsersFriends
   alias Roomy.Models.UsersRooms
+  alias Roomy.Constants.FriendRequestStatus
 
   require FriendRequestStatus
 

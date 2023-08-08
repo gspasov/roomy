@@ -8,7 +8,7 @@ defmodule Roomy.Models.FriendRequest do
 
   alias Roomy.Repo
   alias Roomy.Models.User
-  alias Roomy.Models.FriendRequestStatus
+  alias Roomy.Constants.FriendRequestStatus
 
   require FriendRequestStatus
 
