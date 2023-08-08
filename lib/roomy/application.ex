@@ -8,6 +8,7 @@ defmodule Roomy.Application do
   @impl true
   def start(_type, _args) do
     children = [
+      pg_spec(),
       # Start the Telemetry supervisor
       RoomyWeb.Telemetry,
       # Start the Ecto repository
@@ -34,5 +35,12 @@ defmodule Roomy.Application do
   def config_change(changed, _new, removed) do
     RoomyWeb.Endpoint.config_change(changed, removed)
     :ok
+  end
+
+  defp pg_spec do
+    %{
+      id: :pg,
+      start: {:pg, :start_link, []}
+    }
   end
 end
