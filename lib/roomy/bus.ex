@@ -28,13 +28,13 @@ defmodule Roomy.Bus do
 
   @spec publish(topic :: String.t(), message :: any()) :: :ok
   def publish(topic, message) do
-    Logger.debug("[#{__MODULE__}] publishing to [#{topic}] #{message}")
+    Logger.debug("[#{__MODULE__}] Publishing to [#{topic}] #{inspect(message)}")
 
     :pg.which_groups()
     |> Enum.filter(fn {_module, subscribe_topic} -> match(subscribe_topic, topic) end)
     |> tap(fn groups_receiving_message ->
-      topics_receiving_message = Enum.map(groups_receiving_message, fn {_, topic} -> topic end)
-      Logger.debug("[#{__MODULE__}] sending message to: #{inspect(topics_receiving_message)}")
+      topics = Enum.map(groups_receiving_message, fn {_, topic} -> topic end)
+      Logger.debug("[#{__MODULE__}] Sending message to topics: #{inspect(topics)}")
     end)
     |> Enum.flat_map(fn group -> :pg.get_members(group) end)
     |> Enum.each(fn pid -> send(pid, {__MODULE__, message}) end)

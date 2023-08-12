@@ -1,4 +1,4 @@
-defmodule Roomy.Models.UsersRooms do
+defmodule Roomy.Models.UserRoom do
   @moduledoc false
 
   use Ecto.Schema

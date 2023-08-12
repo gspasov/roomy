@@ -3,6 +3,7 @@ defmodule Roomy.TestUtils do
   Helper functions for the tests
   """
 
+  alias Roomy.Bus
   alias Roomy.Account
   alias Roomy.Request
   alias Roomy.Models.User
@@ -23,11 +24,21 @@ defmodule Roomy.TestUtils do
   def send_friend_request(sender_id, username, message) do
     friend_request = %Request.SendFriendRequest{
       sender_id: sender_id,
-      username: username,
+      receiver_username: username,
       message: message
     }
 
     {:ok, %FriendRequest{} = result} = Account.send_friend_request(friend_request)
     result
+  end
+
+  def subscribe_to_topic(topic) do
+    Task.async(fn ->
+      Bus.subscribe(topic)
+
+      receive do
+        {Bus, _} = message -> message
+      end
+    end)
   end
 end

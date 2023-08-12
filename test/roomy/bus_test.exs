@@ -2,28 +2,23 @@ defmodule Roomy.BusTest do
   use Roomy.DataCase, async: false
 
   alias Roomy.Bus
+  alias Roomy.Utils
+  alias Roomy.TestUtils
 
   require Bus.Topic
 
   test "subscribers to particular topic receive message published to that topic" do
     room_id = "room_101"
 
-    task =
-      Task.async(fn ->
-        room_id
-        |> Bus.Topic.message()
-        |> Bus.subscribe()
+    subscriber =
+      room_id
+      |> Bus.Topic.message()
+      |> TestUtils.subscribe_to_topic()
 
-        receive do
-          {Bus, %Bus.Event.Message{content: content}} ->
-            content
-        end
-      end)
-
+    sent_at = DateTime.utc_now()
     # Give some time for the other process to subscribe to the topic
     # before sending the message
-
-    execute_after(
+    Utils.execute_after(
       200,
       fn ->
         Bus.Event.send_message(%Bus.Event.Message{
@@ -31,14 +26,20 @@ defmodule Roomy.BusTest do
           sender_id: 2,
           content: "hello world",
           room_id: room_id,
-          sent_at: DateTime.utc_now()
+          sent_at: sent_at
         })
-
-        result = Task.await(task)
-
-        assert result == "hello world"
       end
     )
+
+    message_to_receive = %Bus.Event.Message{
+      content: "hello world",
+      message_id: 1,
+      room_id: room_id,
+      sender_id: 2,
+      sent_at: sent_at
+    }
+
+    assert Task.await(subscriber) == {Bus, message_to_receive}
   end
 
   test "subscribers should not receive message sent to a different topic" do
@@ -56,7 +57,7 @@ defmodule Roomy.BusTest do
     # Give some time for the other process to subscribe to the topic
     # before sending the message
 
-    execute_after(
+    Utils.execute_after(
       200,
       fn ->
         Bus.Event.send_message(%Bus.Event.Message{
@@ -70,14 +71,5 @@ defmodule Roomy.BusTest do
         assert catch_exit(Task.await(task, 1_000))
       end
     )
-  end
-
-  defp execute_after(time, fun) do
-    Process.send_after(self(), :do, time)
-
-    receive do
-      :do ->
-        fun.()
-    end
   end
 end

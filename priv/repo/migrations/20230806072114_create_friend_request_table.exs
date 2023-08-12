@@ -2,9 +2,10 @@ defmodule Roomy.Repo.Migrations.CreateFriendRequestTable do
   use Ecto.Migration
 
   alias Roomy.Repo
-  alias Roomy.Constants.FriendRequestStatus
+  alias Roomy.Models.FriendRequestStatus
+  alias Roomy.Constants.FriendRequestStatus, as: Status
 
-  require FriendRequestStatus
+  require Status
 
   def change do
     create table(:friend_request_statuses, primary_key: false) do
@@ -16,11 +17,10 @@ defmodule Roomy.Repo.Migrations.CreateFriendRequestTable do
 
     flush()
 
-    Repo.insert_all(FriendRequestStatus, [
-      %FriendRequestStatus.Create{name: FriendRequestStatus.pending()},
-      %FriendRequestStatus.Create{name: FriendRequestStatus.rejected()},
-      %FriendRequestStatus.Create{name: FriendRequestStatus.accepted()}
-    ])
+    [Status.pending(), Status.rejected(), Status.accepted()]
+    |> Enum.each(fn status ->
+      FriendRequestStatus.create(%FriendRequestStatus.Create{name: status})
+    end)
 
     create table(:friend_requests) do
       add(:message, :text)

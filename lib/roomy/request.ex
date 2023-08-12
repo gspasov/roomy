@@ -8,7 +8,7 @@ defmodule Roomy.Request do
   end
 
   typedstruct module: SendFriendRequest do
-    field(:username, String.t(), enforce: true)
+    field(:receiver_username, String.t(), enforce: true)
     field(:message, String.t())
     field(:sender_id, pos_integer())
   end
@@ -18,5 +18,10 @@ defmodule Roomy.Request do
     field(:sender_id, pos_integer(), enforce: true)
     field(:sent_at, DateTime.t(), enforce: true)
     field(:room_id, pos_integer())
+  end
+
+  typedstruct module: ReadMessage do
+    field(:message_id, String.t(), enforce: true)
+    field(:reader_id, pos_integer(), enforce: true)
   end
 end

@@ -1,0 +1,11 @@
+alias Roomy.Bus
+alias Roomy.Repo
+alias Roomy.Account
+alias Roomy.Request
+alias Roomy.Models.User
+alias Roomy.Models.Room
+alias Roomy.Models.UserRoom
+alias Roomy.Models.Message
+alias Roomy.Models.UserMessage
+alias Roomy.Models.FriendRequest
+alias Roomy.Models.FriendRequestStatus

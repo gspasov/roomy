@@ -2,6 +2,7 @@ defmodule Roomy.Models.User do
   @moduledoc false
 
   use Ecto.Schema
+  use TypedStruct
 
   import Ecto.Changeset
 
@@ -9,9 +10,20 @@ defmodule Roomy.Models.User do
   alias Roomy.Models.Room
   alias Roomy.Models.Message
   alias Roomy.Models.FriendRequest
-  alias Roomy.Models.UsersRooms
-  alias Roomy.Models.UsersMessages
-  alias Roomy.Models.UsersFriends
+  alias Roomy.Models.UserRoom
+  alias Roomy.Models.UserMessage
+  alias Roomy.Models.UserFriend
+
+  @type t :: %__MODULE__{
+          id: pos_integer(),
+          username: String.t(),
+          display_name: String.t(),
+          rooms: [Room.t()],
+          messages: [Message.t()],
+          friends: [__MODULE__.t()],
+          sent_friend_requests: [FriendRequest.t()],
+          received_friend_requests: [FriendRequest.t()]
+        }
 
   @fields [:username, :display_name, :password]
 
@@ -21,11 +33,11 @@ defmodule Roomy.Models.User do
     field(:password, :string, virtual: true, redact: true)
     field(:hashed_password, :string, redact: true)
 
-    many_to_many(:rooms, Room, join_through: UsersRooms)
-    many_to_many(:messages, Message, join_through: UsersMessages)
+    many_to_many(:rooms, Room, join_through: UserRoom)
+    many_to_many(:messages, Message, join_through: UserMessage)
 
     many_to_many(:friends, __MODULE__,
-      join_through: UsersFriends,
+      join_through: UserFriend,
       join_keys: [user1_id: :id, user2_id: :id]
     )
 
@@ -35,9 +47,15 @@ defmodule Roomy.Models.User do
     timestamps()
   end
 
-  def registration_changeset(%__MODULE__{} = user, attrs, opts \\ []) do
+  typedstruct module: Register do
+    field :username, String.t(), enforce: true
+    field :password, String.t(), enforce: true
+    field :display_name, String.t()
+  end
+
+  def registration_changeset(%__MODULE__{} = user, %__MODULE__.Register{} = attrs, opts \\ []) do
     user
-    |> cast(attrs, @fields)
+    |> cast(Map.from_struct(attrs), @fields)
     |> validate_username(opts)
     |> validate_password(opts)
   end
@@ -48,6 +66,52 @@ defmodule Roomy.Models.User do
     |> validate_required([:password])
     |> validate_confirmation(:password, message: "does not match password")
     |> validate_password(opts)
+  end
+
+  @spec create(__MODULE__.Register.t()) :: {:ok, __MODULE__.t()} | {:error, Ecto.Changeset.t()}
+  def create(%__MODULE__.Register{} = attrs) do
+    %__MODULE__{}
+    |> registration_changeset(attrs)
+    |> Repo.insert()
+  end
+
+  def get(id, preloads \\ []) when is_number(id) do
+    get_by([id: id], preloads)
+  end
+
+  def get_by(opts, preloads \\ []) do
+    __MODULE__
+    |> Repo.get_by(opts)
+    |> Repo.preload(preloads)
+    |> case do
+      nil -> {:error, :not_found}
+      entry -> {:ok, entry}
+    end
+  end
+
+  def delete(%__MODULE__{} = user) do
+    Repo.delete(user)
+  end
+
+  def valid_password?(
+        %__MODULE__{hashed_password: hashed_password},
+        password
+      )
+      when is_binary(hashed_password) and byte_size(password) > 0 do
+    Bcrypt.verify_pass(password, hashed_password)
+  end
+
+  def valid_password?(_, _) do
+    Bcrypt.no_user_verify()
+    false
+  end
+
+  def validate_current_password(changeset, password) do
+    if valid_password?(changeset.data, password) do
+      changeset
+    else
+      add_error(changeset, :current_password, "is not valid")
+    end
   end
 
   defp validate_username(changeset, opts) do
@@ -89,41 +153,6 @@ defmodule Roomy.Models.User do
       |> delete_change(:password)
     else
       changeset
-    end
-  end
-
-  def valid_password?(
-        %__MODULE__{hashed_password: hashed_password},
-        password
-      )
-      when is_binary(hashed_password) and byte_size(password) > 0 do
-    Bcrypt.verify_pass(password, hashed_password)
-  end
-
-  def valid_password?(_, _) do
-    Bcrypt.no_user_verify()
-    false
-  end
-
-  def validate_current_password(changeset, password) do
-    if valid_password?(changeset.data, password) do
-      changeset
-    else
-      add_error(changeset, :current_password, "is not valid")
-    end
-  end
-
-  def get(id, preloads \\ []) when is_number(id) do
-    get_by([id: id], preloads)
-  end
-
-  def get_by(opts, preloads \\ []) do
-    __MODULE__
-    |> Repo.get_by(opts)
-    |> Repo.preload(preloads)
-    |> case do
-      nil -> {:error, :not_found}
-      entry -> {:ok, entry}
     end
   end
 end

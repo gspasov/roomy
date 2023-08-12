@@ -5,12 +5,21 @@ defmodule Roomy.Models.FriendRequest do
   use TypedStruct
 
   import Ecto.Changeset
+  import Ecto.Query
 
   alias Roomy.Repo
   alias Roomy.Models.User
   alias Roomy.Constants.FriendRequestStatus
 
   require FriendRequestStatus
+
+  @type t :: %__MODULE__{
+          id: pos_integer(),
+          message: String.t(),
+          status: String.t(),
+          sender: User.t(),
+          receiver: User.t()
+        }
 
   @required_fields [:sender_id, :receiver_id, :status]
   @fields [:message | @required_fields]
@@ -63,11 +72,22 @@ defmodule Roomy.Models.FriendRequest do
   end
 
   def update(id, %__MODULE__.Update{} = attrs) do
-    with {:ok, %__MODULE__{} = friend_request} <- get(id) do
-      friend_request
-      |> update_changeset(attrs)
-      |> Repo.update()
-    end
+    Repo.transaction(fn ->
+      with {:ok, %__MODULE__{} = friend_request} <- get(id),
+           {:ok, %__MODULE__{} = result} <-
+             friend_request
+             |> update_changeset(attrs)
+             |> Repo.update() do
+        result
+      else
+        {:error, reason} -> Repo.rollback(reason)
+      end
+    end)
+  end
+
+  def all(id) do
+    from(m in __MODULE__, where: m.receiver_id == ^id)
+    |> Repo.all()
   end
 
   defp validate_status_is_accept_or_reject(:status, status) do

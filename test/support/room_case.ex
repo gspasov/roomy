@@ -1,0 +1,71 @@
+defmodule Roomy.RoomCase do
+  @moduledoc false
+
+  use ExUnit.CaseTemplate
+
+  alias Roomy.Repo
+  alias Roomy.Account
+  alias Roomy.TestUtils
+  alias Roomy.Models.User
+  alias Roomy.Models.Room
+  alias Roomy.Models.FriendRequest
+  alias Ecto.Adapters.SQL.Sandbox
+
+  using do
+    quote do
+      alias Roomy.Repo
+
+      import Ecto
+      import Ecto.Changeset
+      import Ecto.Query
+      import Roomy.DataCase
+    end
+  end
+
+  setup_all tags do
+    :ok = Ecto.Adapters.SQL.Sandbox.checkout(Roomy.Repo)
+    Ecto.Adapters.SQL.Sandbox.mode(Roomy.Repo, :auto)
+
+    user1 = %User{} = TestUtils.create_user("foo_room_case", "Foo Bar", "123456")
+    user2 = %User{} = TestUtils.create_user("bar_room_case", "Bar Baz", "123456")
+
+    %FriendRequest{id: friend_request_id} =
+      TestUtils.send_friend_request(user1.id, user2.username, "It's a me, Mario!")
+
+    {:ok, %FriendRequest{status: friend_request_status}} =
+      Account.answer_friend_request(friend_request_id, true)
+
+    {:ok, %Room{} = room} = Room.get_by(name: Account.build_room_name(user1.id, user2.id))
+
+    %{user1: user1, user2: user2, room: room}
+  end
+
+  setup tags do
+    Roomy.DataCase.setup_sandbox(tags)
+    :ok
+  end
+
+  @doc """
+  Sets up the sandbox based on the test tags.
+  """
+  def setup_sandbox(tags) do
+    pid = Sandbox.start_owner!(Repo, shared: not tags[:async])
+    on_exit(fn -> Sandbox.stop_owner(pid) end)
+  end
+
+  @doc """
+  A helper that transforms changeset errors into a map of messages.
+
+      assert {:error, changeset} = Accounts.create_user(%{password: "short"})
+      assert "password is too short" in errors_on(changeset).password
+      assert %{password: ["password is too short"]} = errors_on(changeset)
+
+  """
+  def errors_on(changeset) do
+    Ecto.Changeset.traverse_errors(changeset, fn {message, opts} ->
+      Regex.replace(~r"%{(\w+)}", message, fn _, key ->
+        opts |> Keyword.get(String.to_existing_atom(key), key) |> to_string()
+      end)
+    end)
+  end
+end

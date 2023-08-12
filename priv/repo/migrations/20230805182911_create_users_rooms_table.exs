@@ -1,4 +1,4 @@
-defmodule Roomy.Repo.Migrations.CreateUsersRoomsTable do
+defmodule Roomy.Repo.Migrations.CreateUserRoomTable do
   use Ecto.Migration
 
   def change do
