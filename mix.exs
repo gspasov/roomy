@@ -51,7 +51,8 @@ defmodule Roomy.MixProject do
       {:jason, "~> 1.2"},
       {:plug_cowboy, "~> 2.5"},
       {:bcrypt_elixir, "~> 3.0"},
-      {:typed_struct, "~> 0.3.0"}
+      {:typed_struct, "~> 0.3.0"},
+      {:scrivener_ecto, "~> 2.0"}
     ]
   end
 

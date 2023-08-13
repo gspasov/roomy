@@ -48,10 +48,16 @@ defmodule Roomy.Models.Message do
     field(:deleted, boolean(), default: false)
   end
 
-  typedstruct module: Edit do
-    field(:id, pos_integer(), enforce: true)
-    field(:content, String.t(), enforce: true)
-    field(:edited_at, DateTime.t(), enforce: true)
+  typedstruct module: Edit, enforce: true do
+    field(:id, pos_integer())
+    field(:content, String.t())
+    field(:edited_at, DateTime.t())
+  end
+
+  typedstruct module: Paginate, enforce: true do
+    field(:page, pos_integer())
+    field(:page_size, pos_integer())
+    field(:room_id, pos_integer())
   end
 
   def changeset(%__MODULE__{} = message, %__MODULE__.Create{} = attrs) do
@@ -111,5 +117,13 @@ defmodule Roomy.Models.Message do
       select: m
     )
     |> Repo.all()
+  end
+
+  def paginate(%__MODULE__.Paginate{page: page, page_size: page_size, room_id: room_id}) do
+    from(m in __MODULE__,
+      where: m.room_id == ^room_id,
+      select: m
+    )
+    |> Repo.paginate(page: page, page_size: page_size)
   end
 end

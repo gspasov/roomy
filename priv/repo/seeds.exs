@@ -49,9 +49,28 @@ Account.answer_friend_request(fr_request1.id, true)
 
 {:ok, %Room{id: room_id}} = Room.get_by(name: Account.build_room_name(user1.id, user2.id))
 
-Account.send_message(%Request.SendMessage{
-  content: "hi",
-  sender_id: user1.id,
-  room_id: room_id,
-  sent_at: DateTime.utc_now()
-})
+[
+  {"hi", user1.id, true},
+  {"hi to you too", user2.id, true},
+  {"how are you doing?", user1.id, true},
+  {"what are you up to?", user1.id, true},
+  {"I'm pretty okay", user2.id, false},
+  {"I'll be going to the movies tonight", user2.id, false},
+  {"How about you?", user2.id, false},
+  {"What is going in your life?", user2.id, false}
+]
+|> Enum.each(fn {message, user_id, seen?} ->
+  {:ok, %Message{id: message_id}} =
+    Account.send_message(%Request.SendMessage{
+      content: message,
+      sender_id: user_id,
+      room_id: room_id,
+      sent_at: DateTime.utc_now()
+    })
+
+  reader_id = if user_id == user1.id, do: user2.id, else: user1.id
+
+  if seen? do
+    Account.read_message(%Request.ReadMessage{message_id: message_id, reader_id: reader_id})
+  end
+end)
