@@ -106,6 +106,58 @@ defmodule Roomy.MessageTest do
              }
   end
 
+  test "can edit message that is not read", %{user1: user1, room: room} do
+    sent_at = DateTime.utc_now()
+
+    {:ok, %Message{id: message_id}} =
+      Account.send_message(%Request.SendMessage{
+        content: "hello",
+        room_id: room.id,
+        sender_id: user1.id,
+        sent_at: sent_at
+      })
+
+    edited_at = DateTime.utc_now()
+
+    :ok =
+      Account.edit_message(%Request.EditMessage{
+        message_id: message_id,
+        content: "well hello there",
+        edited_at: edited_at
+      })
+
+    {:ok, %Message{} = message} = Message.get(message_id)
+
+    assert message.content == "well hello there"
+  end
+
+  test "cannot edit message that is read", %{user1: user1, user2: user2, room: room} do
+    sent_at = DateTime.utc_now()
+
+    {:ok, %Message{id: message_id}} =
+      Account.send_message(%Request.SendMessage{
+        content: "hello",
+        room_id: room.id,
+        sender_id: user1.id,
+        sent_at: sent_at
+      })
+
+    Account.read_message(%Request.ReadMessage{message_id: message_id, reader_id: user2.id})
+
+    edited_at = DateTime.utc_now()
+
+    {:error, :message_is_read} =
+      Account.edit_message(%Request.EditMessage{
+        message_id: message_id,
+        content: "well hello there",
+        edited_at: edited_at
+      })
+
+    {:ok, %Message{} = message} = Message.get(message_id)
+
+    assert message.content == "hello"
+  end
+
   defp strip_unnecessary_fields(message) do
     message
     |> Map.from_struct()

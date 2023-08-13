@@ -21,7 +21,13 @@ defmodule Roomy.Request do
   end
 
   typedstruct module: ReadMessage do
-    field(:message_id, String.t(), enforce: true)
+    field(:message_id, pos_integer(), enforce: true)
     field(:reader_id, pos_integer(), enforce: true)
+  end
+
+  typedstruct module: EditMessage, enforce: true do
+    field(:message_id, pos_integer())
+    field(:content, String.t())
+    field(:edited_at, DateTime.t())
   end
 end

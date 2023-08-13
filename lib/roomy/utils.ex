@@ -9,4 +9,25 @@ defmodule Roomy.Utils do
       :run -> fun.()
     end
   end
+
+  @doc """
+  Can be used when calling boolean expressions in `with` statement
+
+  ## Example:
+      with {:ok, true} <- check(true, :some_reason) do
+        :ok
+      else
+        {:error, :some_reason} -> :error
+      end
+  """
+  @spec check(boolean(), error) :: {:ok, true} | {:error, error} when error: atom()
+  def check(boolean, error)
+
+  def check(true, _) do
+    {:ok, true}
+  end
+
+  def check(false, error) do
+    {:error, error}
+  end
 end

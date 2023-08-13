@@ -5,6 +5,7 @@ defmodule Roomy.Models.Message do
   use TypedStruct
 
   import Ecto.Changeset
+  import Ecto.Query
 
   alias Roomy.Repo
   alias Roomy.Models.UserMessage
@@ -80,7 +81,7 @@ defmodule Roomy.Models.Message do
            {:ok, %__MODULE__{} = result} <-
              message
              |> edit_changeset(attrs)
-             |> Repo.insert() do
+             |> Repo.update() do
         result
       else
         {:error, reason} -> Repo.rollback(reason)
@@ -100,5 +101,15 @@ defmodule Roomy.Models.Message do
       nil -> {:error, :not_found}
       entry -> {:ok, entry}
     end
+  end
+
+  def all_unread(reader_id, room_id) do
+    from(m in __MODULE__,
+      join: um in UserMessage,
+      on: m.id == um.message_id,
+      where: um.user_id == ^reader_id and um.seen == false and m.room_id == ^room_id,
+      select: m
+    )
+    |> Repo.all()
   end
 end

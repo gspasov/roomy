@@ -5,6 +5,7 @@ defmodule Roomy.Account do
   alias Roomy.Bus
   alias Roomy.Models.Message
   alias Roomy.Repo
+  alias Roomy.Utils
   alias Roomy.Request
   alias Roomy.Models.User
   alias Roomy.Models.Room
@@ -112,7 +113,7 @@ defmodule Roomy.Account do
 
   @spec fetch_unread_messages(pos_integer(), pos_integer()) :: [Message.t()]
   def fetch_unread_messages(reader_id, room_id) do
-    UserMessage.all_unread(reader_id, room_id)
+    Message.all_unread(reader_id, room_id)
   end
 
   @spec read_message(Request.ReadMessage.t()) :: :ok | {:error, any()}
@@ -123,9 +124,33 @@ defmodule Roomy.Account do
     end
   end
 
+  @spec edit_message(Request.EditMessage.t()) :: :ok | {:error, any()}
+  def edit_message(%Request.EditMessage{
+        message_id: message_id,
+        content: new_content,
+        edited_at: edited_at
+      }) do
+    with [_ | _] = user_messages <- UserMessage.all(message_id),
+         {:ok, true} <-
+           user_messages |> message_is_unread_by_everyone() |> Utils.check(:message_is_read),
+         {:ok, %Message{}} <-
+           Message.edit(%Message.Edit{
+             id: message_id,
+             content: new_content,
+             edited_at: edited_at
+           }) do
+      :ok
+    end
+  end
+
+  @spec build_room_name(pos_integer(), pos_integer()) :: String.t()
   def build_room_name(sender_id, receiver_id) do
     [first, second] = Enum.sort([sender_id, receiver_id])
     "#{first}#{second}"
+  end
+
+  defp message_is_unread_by_everyone(user_messages) do
+    Enum.all?(user_messages, fn %UserMessage{seen: seen} -> seen == false end)
   end
 
   defp maybe_make_friends(accepted?, sender_id, receiver_id)

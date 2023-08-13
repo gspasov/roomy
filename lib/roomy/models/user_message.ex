@@ -77,12 +77,12 @@ defmodule Roomy.Models.UserMessage do
     end
   end
 
-  def all_unread(reader_id, room_id) do
+  def all(message_id) do
     from(um in __MODULE__,
       join: m in Message,
       on: m.id == um.message_id,
-      where: um.user_id == ^reader_id and um.seen == false and m.room_id == ^room_id,
-      select: m
+      where: um.message_id == ^message_id,
+      select: um
     )
     |> Repo.all()
   end
