@@ -1,4 +1,4 @@
-defmodule Roomy.Models.FriendRequestStatus do
+defmodule Roomy.Models.RoomType do
   @moduledoc false
 
   use Ecto.Schema
@@ -11,23 +11,23 @@ defmodule Roomy.Models.FriendRequestStatus do
   @fields [:name]
 
   @primary_key false
-  schema "friend_request_statuses" do
+  schema "room_types" do
     field(:name, :string, primary_key: true)
 
     timestamps()
   end
 
-  typedstruct module: Create, enforce: true do
+  typedstruct module: New, enforce: true do
     field(:name, String.t())
   end
 
-  def changeset(%__MODULE__{} = friend_request_status, %__MODULE__.Create{} = attrs) do
-    friend_request_status
+  def changeset(%__MODULE__{} = room_type, %__MODULE__.New{} = attrs) do
+    room_type
     |> cast(Map.from_struct(attrs), @fields)
     |> validate_required(@fields)
   end
 
-  def create(%__MODULE__.Create{} = attrs) do
+  def create(%__MODULE__.New{} = attrs) do
     %__MODULE__{}
     |> changeset(attrs)
     |> Repo.insert()

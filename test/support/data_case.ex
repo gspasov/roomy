@@ -32,16 +32,6 @@ defmodule Roomy.DataCase do
     end
   end
 
-  # setup_all tags do
-  #   :ok = Ecto.Adapters.SQL.Sandbox.checkout(Roomy.Repo)
-  #   Ecto.Adapters.SQL.Sandbox.mode(Roomy.Repo, :auto)
-
-  #   user1 = %User{} = TestUtils.create_user("foo_data_case", "Foo Bar", "123456")
-  #   user2 = %User{} = TestUtils.create_user("bar_data_case", "Bar Baz", "123456")
-
-  #   %{user1: user1, user2: user2}
-  # end
-
   setup tags do
     Roomy.DataCase.setup_sandbox(tags)
     :ok

@@ -8,8 +8,11 @@ defmodule Roomy.RoomCase do
   alias Roomy.TestUtils
   alias Roomy.Models.User
   alias Roomy.Models.Room
-  alias Roomy.Models.FriendRequest
+  alias Roomy.Models.Invitation
+  alias Roomy.Constants.RoomType
   alias Ecto.Adapters.SQL.Sandbox
+
+  require RoomType
 
   using do
     quote do
@@ -29,11 +32,14 @@ defmodule Roomy.RoomCase do
     user1 = %User{} = TestUtils.create_user("foo_room_case", "Foo Bar", "123456")
     user2 = %User{} = TestUtils.create_user("bar_room_case", "Bar Baz", "123456")
 
-    %FriendRequest{id: friend_request_id} =
-      TestUtils.send_friend_request(user1.id, user2.username, "It's a me, Mario!")
+    %Invitation{id: invitation_id} =
+      TestUtils.send_friend_request(
+        user1.id,
+        user2.username,
+        "It's a me, Mario!"
+      )
 
-    {:ok, %FriendRequest{status: friend_request_status}} =
-      Account.answer_friend_request(friend_request_id, true)
+    {:ok, %Invitation{}} = Account.answer_invitation(invitation_id, true)
 
     {:ok, %Room{} = room} = Room.get_by(name: Account.build_room_name(user1.id, user2.id))
 

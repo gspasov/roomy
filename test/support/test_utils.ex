@@ -7,7 +7,7 @@ defmodule Roomy.TestUtils do
   alias Roomy.Account
   alias Roomy.Request
   alias Roomy.Models.User
-  alias Roomy.Models.FriendRequest
+  alias Roomy.Models.Invitation
 
   def create_user(username, display_name, password) do
     request = %Request.RegisterUser{
@@ -22,13 +22,13 @@ defmodule Roomy.TestUtils do
   end
 
   def send_friend_request(sender_id, username, message) do
-    friend_request = %Request.SendFriendRequest{
+    invitation = %Request.SendFriendRequest{
       sender_id: sender_id,
       receiver_username: username,
-      message: message
+      invitation_message: message
     }
 
-    {:ok, %FriendRequest{} = result} = Account.send_friend_request(friend_request)
+    {:ok, %Invitation{} = result} = Account.send_friend_request(invitation)
     result
   end
 

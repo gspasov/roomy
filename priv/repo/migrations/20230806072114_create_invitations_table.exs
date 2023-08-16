@@ -1,14 +1,14 @@
-defmodule Roomy.Repo.Migrations.CreateFriendRequestTable do
+defmodule Roomy.Repo.Migrations.CreateInvitationsTable do
   use Ecto.Migration
 
   alias Roomy.Repo
-  alias Roomy.Models.FriendRequestStatus
-  alias Roomy.Constants.FriendRequestStatus, as: Status
+  alias Roomy.Models.InvitationStatus
+  alias Roomy.Constants.InvitationStatus, as: Status
 
   require Status
 
   def change do
-    create table(:friend_request_statuses, primary_key: false) do
+    create table(:invitation_statuses, primary_key: false) do
       add(:name, :text, primary_key: true, null: false)
 
       add(:inserted_at, :utc_datetime_usec, default: fragment("NOW()"))
@@ -19,15 +19,16 @@ defmodule Roomy.Repo.Migrations.CreateFriendRequestTable do
 
     [Status.pending(), Status.rejected(), Status.accepted()]
     |> Enum.each(fn status ->
-      FriendRequestStatus.create(%FriendRequestStatus.Create{name: status})
+      InvitationStatus.create(%InvitationStatus.Create{name: status})
     end)
 
-    create table(:friend_requests) do
+    create table(:invitations) do
       add(:message, :text)
 
       add(:sender_id, references(:users), null: false)
       add(:receiver_id, references(:users), null: false)
-      add(:status, references(:friend_request_statuses, type: :text, column: :name), null: false)
+      add(:room_id, references(:rooms), null: false)
+      add(:status, references(:invitation_statuses, type: :text, column: :name), null: false)
 
       add(:inserted_at, :utc_datetime_usec, default: fragment("NOW()"))
       add(:updated_at, :utc_datetime_usec, default: fragment("NOW()"))

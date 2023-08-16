@@ -9,12 +9,14 @@ defmodule Roomy.Account do
   alias Roomy.Request
   alias Roomy.Models.User
   alias Roomy.Models.Room
-  alias Roomy.Models.FriendRequest
+  alias Roomy.Models.Invitation
   alias Roomy.Models.UserFriend
   alias Roomy.Models.UserRoom
-  alias Roomy.Constants.FriendRequestStatus
+  alias Roomy.Constants.InvitationStatus
+  alias Roomy.Constants.RoomType
 
-  require FriendRequestStatus
+  require InvitationStatus
+  require RoomType
 
   @spec register_user(Request.RegisterUser.t()) ::
           {:ok, User.t()} | {:error, Ecto.Changeset.t()}
@@ -31,58 +33,93 @@ defmodule Roomy.Account do
   end
 
   @spec send_friend_request(Roomy.Request.SendFriendRequest.t()) ::
-          {:ok, FriendRequest.t()} | {:error, Ecto.Changeset.t()}
+          {:ok, Invitation.t()} | {:error, Ecto.Changeset.t()}
   def send_friend_request(%Request.SendFriendRequest{
         sender_id: sender_id,
-        receiver_username: receiver_username,
-        message: message
+        invitation_message: message,
+        receiver_username: receiver_username
       }) do
-    with {:ok, %User{id: receiver_id}} <- User.get_by(username: receiver_username),
-         {:ok, %FriendRequest{}} = result <-
-           FriendRequest.create(%FriendRequest.Create{
-             sender_id: sender_id,
-             receiver_id: receiver_id,
-             message: message
-           }) do
-      result
-    end
-  end
+    room_params =
+      &%Room.Create{
+        name: build_room_name(sender_id, &1),
+        type: RoomType.dm()
+      }
 
-  @spec list_friend_requests(user_id: pos_integer()) :: [FriendRequest.t()]
-  def list_friend_requests(user_id) do
-    FriendRequest.all(user_id)
-  end
+    user_room_params =
+      &%UserRoom.AddUserToRoom{
+        room_id: &1,
+        user_id: sender_id
+      }
 
-  @spec answer_friend_request(request_id :: pos_integer(), is_accepted :: boolean()) ::
-          {:ok, FriendRequest.t()} | {:error, Ecto.Changeset.t()}
-  def answer_friend_request(friend_request_id, accepted?) do
-    status =
-      if accepted? do
-        FriendRequestStatus.accepted()
-      else
-        FriendRequestStatus.rejected()
-      end
+    invitation_params =
+      &%Invitation.Create{
+        message: message,
+        sender_id: sender_id,
+        room_id: &1,
+        receiver_id: &2
+      }
 
     Repo.transaction(fn ->
-      with {:ok, %FriendRequest{sender_id: sender_id, receiver_id: receiver_id} = result} <-
-             FriendRequest.update(friend_request_id, %FriendRequest.Update{status: status}),
-           {:ok, _} <- maybe_make_friends(accepted?, sender_id, receiver_id),
-           {:ok, _} <- maybe_create_room(accepted?, sender_id, receiver_id) do
-        result
+      with {:ok, %User{id: receiver_id}} <-
+             User.get_by(username: receiver_username),
+           {:ok, %Room{id: room_id}} <- Room.create(room_params.(receiver_id)),
+           {:ok, %UserRoom{}} <-
+             UserRoom.add_user_to_room(user_room_params.(room_id)),
+           {:ok, %Invitation{} = invitation} <-
+             Invitation.create(invitation_params.(room_id, receiver_id)) do
+        invitation
       else
         {:error, reason} -> Repo.rollback(reason)
       end
     end)
   end
 
-  @spec send_message(Request.SendMessage.t()) :: {:ok, Message.t()} | {:error, Ecto.Changeset.t()}
+  @spec list_invitations(user_id: pos_integer()) :: [Invitation.t()]
+  def list_invitations(user_id) do
+    Invitation.all(user_id)
+  end
+
+  @spec answer_invitation(request_id :: pos_integer(), is_accepted :: boolean()) ::
+          {:ok, Invitation.t()} | {:error, Ecto.Changeset.t()}
+  def answer_invitation(invitation_id, accepted?) do
+    status =
+      if accepted? do
+        InvitationStatus.accepted()
+      else
+        InvitationStatus.rejected()
+      end
+
+    Repo.transaction(fn ->
+      with {:ok,
+            %Invitation{
+              sender_id: sender_id,
+              receiver_id: receiver_id,
+              room: %Room{id: room_id, type: room_type}
+            }} <- Invitation.get(invitation_id, [:room]),
+           {:ok, %Invitation{} = invitation} <-
+             Invitation.update(%Invitation.Update{
+               id: invitation_id,
+               status: status
+             }),
+           {:ok, _} <-
+             maybe_become_friends(accepted?, room_type, sender_id, receiver_id),
+           {:ok, _} <- maybe_join_room(accepted?, receiver_id, room_id) do
+        invitation
+      else
+        {:error, reason} -> Repo.rollback(reason)
+      end
+    end)
+  end
+
+  @spec send_message(Request.SendMessage.t()) ::
+          {:ok, Message.t()} | {:error, Ecto.Changeset.t()}
   def send_message(%Request.SendMessage{
         content: content,
         room_id: room_id,
         sender_id: sender_id,
         sent_at: sent_at
       }) do
-    message = %Message.Create{
+    create_params = %Message.Create{
       content: content,
       room_id: room_id,
       sender_id: sender_id,
@@ -91,7 +128,8 @@ defmodule Roomy.Account do
 
     Repo.transaction(fn ->
       with {:ok, %Room{users: users}} <- Room.get(room_id, :users),
-           {:ok, %Message{id: message_id} = result} <- Message.create(message),
+           {:ok, %Message{id: message_id} = message} <-
+             Message.create(create_params),
            UserMessage.create(%UserMessage.Multi{
              user_ids: Enum.map(users, fn %User{id: id} -> id end) -- [sender_id],
              message_id: message_id
@@ -104,7 +142,7 @@ defmodule Roomy.Account do
           message_id: message_id
         })
 
-        result
+        message
       else
         {:error, reason} -> Repo.rollback(reason)
       end
@@ -117,9 +155,15 @@ defmodule Roomy.Account do
   end
 
   @spec read_message(Request.ReadMessage.t()) :: :ok | {:error, any()}
-  def read_message(%Request.ReadMessage{message_id: message_id, reader_id: reader_id}) do
+  def read_message(%Request.ReadMessage{
+        message_id: message_id,
+        reader_id: reader_id
+      }) do
     with {:ok, %UserMessage{}} <-
-           UserMessage.read(%UserMessage.Read{message_id: message_id, user_id: reader_id}) do
+           UserMessage.read(%UserMessage.Read{
+             message_id: message_id,
+             user_id: reader_id
+           }) do
       :ok
     end
   end
@@ -132,7 +176,9 @@ defmodule Roomy.Account do
       }) do
     with [_ | _] = user_messages <- UserMessage.all(message_id),
          {:ok, true} <-
-           user_messages |> message_is_unread_by_everyone() |> Utils.check(:message_is_read),
+           user_messages
+           |> message_is_unread_by_everyone()
+           |> Utils.check(:message_is_read),
          {:ok, %Message{}} <-
            Message.edit(%Message.Edit{
              id: message_id,
@@ -141,6 +187,77 @@ defmodule Roomy.Account do
            }) do
       :ok
     end
+  end
+
+  @spec create_group_chat(Request.CreateGroupChat.t()) ::
+          {:ok, Room.t()} | {:error, Changeset.Error.t()}
+  def create_group_chat(%Request.CreateGroupChat{
+        name: group_name,
+        sender_id: sender_id,
+        invitation_message: message,
+        participants_usernames: participants_usernames
+      }) do
+    room_params = %Room.Create{
+      name: group_name,
+      type: RoomType.group()
+    }
+
+    find_participants = fn usernames ->
+      Enum.reduce_while(usernames, {:ok, []}, fn username, {:ok, users} ->
+        case User.get_by(username: username) do
+          {:ok, %User{} = user} -> {:cont, {:ok, [user | users]}}
+          {:error, _} -> {:halt, {:error, {:user_not_found, username}}}
+        end
+      end)
+    end
+
+    filter_participants = fn %User{friends: sender_friends}, participants ->
+      Enum.reduce(participants, {[], []}, fn %User{id: user_id} = user,
+                                             {friends, invited_users} ->
+        sender_friends
+        |> Enum.any?(fn %User{id: id} -> id == user_id end)
+        |> case do
+          true -> {[user | friends], invited_users}
+          false -> {friends, [user | invited_users]}
+        end
+      end)
+    end
+
+    add_users_to_room = fn users, room_id ->
+      Enum.each(users, fn %User{id: user_id} ->
+        {:ok, %UserRoom{}} =
+          UserRoom.add_user_to_room(%UserRoom.AddUserToRoom{
+            room_id: room_id,
+            user_id: user_id
+          })
+      end)
+    end
+
+    create_invitations = fn users, room_id ->
+      Enum.each(users, fn %User{id: user_id} ->
+        {:ok, %Invitation{}} =
+          Invitation.create(%Invitation.Create{
+            message: message,
+            sender_id: sender_id,
+            room_id: room_id,
+            receiver_id: user_id
+          })
+      end)
+    end
+
+    Repo.transaction(fn ->
+      with {:ok, participants} <- find_participants.(participants_usernames),
+           {:ok, %User{} = sender} <- User.get(sender_id, [:friends]),
+           {:ok, %Room{id: room_id} = room} <- Room.create(room_params),
+           {sender_friends, invited_users} <- filter_participants.(sender, participants),
+           :ok <- add_users_to_room.([sender | sender_friends], room_id),
+           :ok <- create_invitations.(invited_users, room_id) do
+        room
+      else
+        {:error, {:user_not_found, _}} = error -> error
+        {:error, reason} -> Repo.rollback(reason)
+      end
+    end)
   end
 
   @spec build_room_name(pos_integer(), pos_integer()) :: String.t()
@@ -153,44 +270,39 @@ defmodule Roomy.Account do
     Enum.all?(user_messages, fn %UserMessage{seen: seen} -> seen == false end)
   end
 
-  defp maybe_make_friends(accepted?, sender_id, receiver_id)
+  defp maybe_become_friends(accepted?, invitation_type, sender_id, receiver_id)
 
-  defp maybe_make_friends(false, _, _), do: {:ok, nil}
+  defp maybe_become_friends(true, RoomType.dm(), sender_id, receiver_id) do
+    params_1 = %UserFriend.Create{
+      user1_id: sender_id,
+      user2_id: receiver_id
+    }
 
-  defp maybe_make_friends(true, sender_id, receiver_id) do
-    with {:ok, %UserFriend{}} <-
-           UserFriend.create(%UserFriend.Create{
-             user1_id: sender_id,
-             user2_id: receiver_id
-           }),
-         {:ok, %UserFriend{}} <-
-           UserFriend.create(%UserFriend.Create{
-             user1_id: receiver_id,
-             user2_id: sender_id
-           }) do
+    params_2 = %UserFriend.Create{
+      user1_id: receiver_id,
+      user2_id: sender_id
+    }
+
+    with {:ok, %UserFriend{}} <- UserFriend.create(params_1),
+         {:ok, %UserFriend{}} <- UserFriend.create(params_2) do
       {:ok, nil}
     end
   end
 
-  defp maybe_create_room(accepted?, sender_id, receiver_id)
+  defp maybe_become_friends(_, _, _, _), do: {:ok, nil}
 
-  defp maybe_create_room(false, _, _), do: {:ok, nil}
+  defp maybe_join_room(accepted?, receiver_id, room_id)
 
-  defp maybe_create_room(true, sender_id, receiver_id) do
-    room_name = build_room_name(sender_id, receiver_id)
+  defp maybe_join_room(true, receiver_id, room_id) do
+    params = %UserRoom.AddUserToRoom{
+      user_id: receiver_id,
+      room_id: room_id
+    }
 
-    with {:ok, %Room{id: room_id} = room} <- Room.create(%Room.Create{name: room_name}),
-         {:ok, %UserRoom{}} <-
-           UserRoom.add_user_to_room(%UserRoom.AddUserToRoom{
-             user_id: sender_id,
-             room_id: room_id
-           }),
-         {:ok, %UserRoom{}} <-
-           UserRoom.add_user_to_room(%UserRoom.AddUserToRoom{
-             user_id: receiver_id,
-             room_id: room_id
-           }) do
-      {:ok, room}
+    with {:ok, %UserRoom{}} <- UserRoom.add_user_to_room(params) do
+      {:ok, nil}
     end
   end
+
+  defp maybe_join_room(_, _, _), do: {:ok, nil}
 end

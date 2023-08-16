@@ -7,5 +7,5 @@ alias Roomy.Models.Room
 alias Roomy.Models.UserRoom
 alias Roomy.Models.Message
 alias Roomy.Models.UserMessage
-alias Roomy.Models.FriendRequest
-alias Roomy.Models.FriendRequestStatus
+alias Roomy.Models.Invitation
+alias Roomy.Models.InvitationStatus

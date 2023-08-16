@@ -13,13 +13,15 @@ defmodule Roomy.Models.Room do
   @type t :: %__MODULE__{
           id: pos_integer(),
           name: String.t(),
+          type: String.t(),
           users: [User.t()]
         }
 
-  @fields [:name]
+  @fields [:name, :type]
 
   schema "rooms" do
     field(:name, :string)
+    field(:type, :string)
 
     many_to_many(:users, User, join_through: UserRoom)
 
@@ -28,6 +30,7 @@ defmodule Roomy.Models.Room do
 
   typedstruct module: Create, enforce: true do
     field(:name, String.t())
+    field(:type, String.t())
   end
 
   def changeset(%__MODULE__{} = room, %__MODULE__.Create{} = attrs) do

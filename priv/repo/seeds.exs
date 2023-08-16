@@ -15,23 +15,36 @@ alias Roomy.Request
 alias Roomy.Models.User
 alias Roomy.Models.Room
 alias Roomy.Models.Message
-alias Roomy.Models.FriendRequest
+alias Roomy.Models.Invitation
+alias Roomy.Constants.RoomType
 
-[{:ok, %User{} = user1}, {:ok, %User{} = user2}, {:ok, %User{} = user3} | _] =
+require RoomType
+
+[
+  {:ok, %User{} = user1},
+  {:ok, %User{} = user2},
+  {:ok, %User{} = user3},
+  {:ok, %User{} = user4} | _
+] =
   [
     %Request.RegisterUser{
-      display_name: "Georgi Spasov",
-      username: "gspasov",
+      display_name: "John Benton",
+      username: "john",
       password: "123456"
     },
     %Request.RegisterUser{
-      display_name: "Pesho Machinata",
-      username: "peshaka",
+      display_name: "Peter Winchester",
+      username: "pete",
       password: "123456"
     },
     %Request.RegisterUser{
-      display_name: "Miro Kacata",
-      username: "mcaka",
+      display_name: "Steven Turner",
+      username: "steve",
+      password: "123456"
+    },
+    %Request.RegisterUser{
+      display_name: "Garry Simpson",
+      username: "garry",
       password: "123456"
     }
   ]
@@ -39,15 +52,23 @@ alias Roomy.Models.FriendRequest
     Account.register_user(request)
   end)
 
-{:ok, %FriendRequest{} = fr_request1} =
+{:ok, %Invitation{} = fr_request1} =
   Account.send_friend_request(%Request.SendFriendRequest{
     sender_id: user1.id,
     receiver_username: user2.username
   })
 
-Account.answer_friend_request(fr_request1.id, true)
+{:ok, %Invitation{} = fr_request2} =
+  Account.send_friend_request(%Request.SendFriendRequest{
+    sender_id: user1.id,
+    receiver_username: user3.username
+  })
+
+{:ok, _} = Account.answer_invitation(fr_request1.id, true)
+{:ok, _} = Account.answer_invitation(fr_request2.id, true)
 
 {:ok, %Room{id: room_id}} = Room.get_by(name: Account.build_room_name(user1.id, user2.id))
+{:ok, %Room{}} = Room.get_by(name: Account.build_room_name(user1.id, user3.id))
 
 [
   {"hi", user1.id, true},

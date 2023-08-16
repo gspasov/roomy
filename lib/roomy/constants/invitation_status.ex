@@ -1,4 +1,4 @@
-defmodule Roomy.Constants.FriendRequestStatus do
+defmodule Roomy.Constants.InvitationStatus do
   @moduledoc false
 
   defmacro pending do

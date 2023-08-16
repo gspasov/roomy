@@ -9,8 +9,8 @@ defmodule Roomy.Request do
 
   typedstruct module: SendFriendRequest do
     field(:receiver_username, String.t(), enforce: true)
-    field(:message, String.t())
-    field(:sender_id, pos_integer())
+    field(:sender_id, pos_integer(), enforce: true)
+    field(:invitation_message, String.t())
   end
 
   typedstruct module: SendMessage do
@@ -29,5 +29,12 @@ defmodule Roomy.Request do
     field(:message_id, pos_integer())
     field(:content, String.t())
     field(:edited_at, DateTime.t())
+  end
+
+  typedstruct module: CreateGroupChat do
+    field(:participants_usernames, [String.t()], enforce: true)
+    field(:sender_id, pos_integer(), enforce: true)
+    field(:name, String.t(), enforce: true)
+    field(:invitation_message, String.t())
   end
 end

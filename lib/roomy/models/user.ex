@@ -9,7 +9,7 @@ defmodule Roomy.Models.User do
   alias Roomy.Repo
   alias Roomy.Models.Room
   alias Roomy.Models.Message
-  alias Roomy.Models.FriendRequest
+  alias Roomy.Models.Invitation
   alias Roomy.Models.UserRoom
   alias Roomy.Models.UserMessage
   alias Roomy.Models.UserFriend
@@ -21,8 +21,8 @@ defmodule Roomy.Models.User do
           rooms: [Room.t()],
           messages: [Message.t()],
           friends: [__MODULE__.t()],
-          sent_friend_requests: [FriendRequest.t()],
-          received_friend_requests: [FriendRequest.t()]
+          sent_invitations: [Invitation.t()],
+          received_invitations: [Invitation.t()]
         }
 
   @fields [:username, :display_name, :password]
@@ -41,8 +41,8 @@ defmodule Roomy.Models.User do
       join_keys: [user1_id: :id, user2_id: :id]
     )
 
-    has_many(:sent_friend_requests, FriendRequest, foreign_key: :sender_id)
-    has_many(:received_friend_requests, FriendRequest, foreign_key: :receiver_id)
+    has_many(:sent_invitations, Invitation, foreign_key: :sender_id)
+    has_many(:received_invitations, Invitation, foreign_key: :receiver_id)
 
     timestamps()
   end

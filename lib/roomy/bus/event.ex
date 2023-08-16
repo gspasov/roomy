@@ -7,10 +7,10 @@ defmodule Roomy.Bus.Event do
   alias Roomy.Bus
   alias Roomy.Bus.Topic
   alias Roomy.Bus.Event
-  alias Roomy.Constants.FriendRequestStatus
+  alias Roomy.Constants.InvitationStatus
 
   require Topic
-  require FriendRequestStatus
+  require InvitationStatus
 
   typedstruct module: Message do
     field(:message_id, pos_integer())
@@ -43,7 +43,7 @@ defmodule Roomy.Bus.Event do
 
   @spec user_status_change(event :: Event.UserStatusChange.t()) :: :ok
   def user_status_change(%Event.UserStatusChange{user_id: user_id, status: status} = e)
-      when FriendRequestStatus.is_allowed_status(status) do
+      when InvitationStatus.is_allowed_status(status) do
     Bus.publish(Topic.user(user_id), e)
   end
 
