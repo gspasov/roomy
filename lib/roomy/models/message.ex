@@ -8,7 +8,12 @@ defmodule Roomy.Models.Message do
   import Ecto.Query
 
   alias Roomy.Repo
+  alias Roomy.Models.Room
+  alias Roomy.Models.User
   alias Roomy.Models.UserMessage
+  alias Roomy.Constants.MessageType
+
+  require MessageType
 
   @type t :: %__MODULE__{
           id: pos_integer(),
@@ -18,34 +23,41 @@ defmodule Roomy.Models.Message do
           edited: boolean(),
           deleted: boolean(),
           sent_at: DateTime.t(),
+          room: Room.t(),
+          sender: User.t(),
           users_messages: [UserMessage.t()]
         }
 
-  @required_fields [:content, :sent_at, :sender_id, :room_id]
+  @required_fields [:type, :content, :sent_at, :room_id]
+  @allowed_fields [:edited, :deleted, :edited_at, :sender_id | @required_fields]
+
   @required_edit_fields [:content, :edited_at, :edited]
-  @allowed_fields [:edited, :deleted, :edited_at | @required_fields]
+  @allowed_edit_fields [:deleted | @required_edit_fields]
 
   schema "messages" do
+    field(:type, :string)
     field(:content, :string)
     field(:sent_at, :utc_datetime_usec)
-    field(:sender_id, :integer)
-    field(:room_id, :integer)
-    field(:edited, :boolean, default: false)
-    field(:edited_at, :utc_datetime_usec, default: nil)
-    field(:deleted, :boolean, default: false)
+    field(:edited, :boolean)
+    field(:edited_at, :utc_datetime_usec)
+    field(:deleted, :boolean)
 
     has_many(:users_messages, UserMessage)
+
+    belongs_to(:room, Room)
+    belongs_to(:sender, User)
 
     timestamps()
   end
 
   typedstruct module: New do
+    field(:sender_id, pos_integer())
     field(:content, String.t(), enforce: true)
     field(:sent_at, DateTime.t(), enforce: true)
-    field(:sender_id, pos_integer(), enforce: true)
     field(:room_id, pos_integer(), enforce: true)
     field(:edited, boolean(), default: false)
     field(:deleted, boolean(), default: false)
+    field(:type, String.t(), default: MessageType.normal())
   end
 
   typedstruct module: Edit, enforce: true do
@@ -68,7 +80,7 @@ defmodule Roomy.Models.Message do
 
   def edit_changeset(%__MODULE__{} = message, %__MODULE__.Edit{} = attrs) do
     message
-    |> cast(Map.from_struct(attrs), @allowed_fields)
+    |> cast(Map.from_struct(attrs), @allowed_edit_fields)
     |> put_change(:edited, true)
     |> validate_required(@required_edit_fields)
   end

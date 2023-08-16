@@ -14,9 +14,11 @@ defmodule Roomy.Account do
   alias Roomy.Models.UserRoom
   alias Roomy.Constants.InvitationStatus
   alias Roomy.Constants.RoomType
+  alias Roomy.Constants.MessageType
 
   require InvitationStatus
   require RoomType
+  require MessageType
 
   @spec register_user(Request.RegisterUser.t()) ::
           {:ok, User.t()} | {:error, Ecto.Changeset.t()}
@@ -94,8 +96,9 @@ defmodule Roomy.Account do
             %Invitation{
               sender_id: sender_id,
               receiver_id: receiver_id,
+              receiver: receiver,
               room: %Room{id: room_id, type: room_type}
-            }} <- Invitation.get(invitation_id, [:room]),
+            }} <- Invitation.get(invitation_id, [:room, :receiver]),
            {:ok, %Invitation{} = invitation} <-
              Invitation.update(%Invitation.Update{
                id: invitation_id,
@@ -103,7 +106,8 @@ defmodule Roomy.Account do
              }),
            {:ok, _} <-
              maybe_become_friends(accepted?, room_type, sender_id, receiver_id),
-           {:ok, _} <- maybe_join_room(accepted?, receiver_id, room_id) do
+           {:ok, _} <- maybe_join_room(accepted?, receiver_id, room_id),
+           {:ok, _} <- maybe_add_system_message(accepted?, room_type, receiver, room_id) do
         invitation
       else
         {:error, reason} -> Repo.rollback(reason)
@@ -174,17 +178,18 @@ defmodule Roomy.Account do
         content: new_content,
         edited_at: edited_at
       }) do
+    edit_message_params = %Message.Edit{
+      id: message_id,
+      content: new_content,
+      edited_at: edited_at
+    }
+
     with [_ | _] = user_messages <- UserMessage.all(message_id),
          {:ok, true} <-
            user_messages
            |> message_is_unread_by_everyone()
            |> Utils.check(:message_is_read),
-         {:ok, %Message{}} <-
-           Message.edit(%Message.Edit{
-             id: message_id,
-             content: new_content,
-             edited_at: edited_at
-           }) do
+         {:ok, %Message{}} <- Message.edit(edit_message_params) do
       :ok
     end
   end
@@ -249,7 +254,8 @@ defmodule Roomy.Account do
       with {:ok, participants} <- find_participants.(participants_usernames),
            {:ok, %User{} = sender} <- User.get(sender_id, [:friends]),
            {:ok, %Room{id: room_id} = room} <- Room.create(room_params),
-           {sender_friends, invited_users} <- filter_participants.(sender, participants),
+           {sender_friends, invited_users} <-
+             filter_participants.(sender, participants),
            :ok <- add_users_to_room.([sender | sender_friends], room_id),
            :ok <- create_invitations.(invited_users, room_id) do
         room
@@ -305,4 +311,21 @@ defmodule Roomy.Account do
   end
 
   defp maybe_join_room(_, _, _), do: {:ok, nil}
+
+  def maybe_add_system_message(accepted?, room_type, receiver, room_id)
+
+  def maybe_add_system_message(true, RoomType.group(), %User{display_name: name}, room_id) do
+    system_message_params = %Message.New{
+      content: "User #{name} has joined the group",
+      room_id: room_id,
+      type: MessageType.system_group_join(),
+      sent_at: DateTime.utc_now()
+    }
+
+    with {:ok, %Message{}} <- Message.create(system_message_params) do
+      {:ok, nil}
+    end
+  end
+
+  def maybe_add_system_message(_, _, _, _), do: {:ok, nil}
 end

@@ -8,8 +8,10 @@ defmodule Roomy.MessageTest do
   alias Roomy.TestUtils
   alias Roomy.Models.Message
   alias Roomy.Models.UserMessage
+  alias Roomy.Constants.MessageType
 
   require Bus.Topic
+  require MessageType
 
   test "Sending message by default is seen false", %{user1: user1, user2: user2, room: room} do
     sent_at = DateTime.utc_now()
@@ -102,7 +104,8 @@ defmodule Roomy.MessageTest do
                edited: false,
                edited_at: nil,
                deleted: false,
-               sent_at: sent_at_2
+               sent_at: sent_at_2,
+               type: MessageType.normal()
              }
   end
 

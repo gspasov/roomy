@@ -8,13 +8,15 @@ defmodule Roomy.Models.Room do
 
   alias Roomy.Repo
   alias Roomy.Models.User
+  alias Roomy.Models.Message
   alias Roomy.Models.UserRoom
 
   @type t :: %__MODULE__{
           id: pos_integer(),
           name: String.t(),
           type: String.t(),
-          users: [User.t()]
+          users: [User.t()],
+          messages: [Message.t()]
         }
 
   @allowed_fields [:name, :type]
@@ -24,6 +26,7 @@ defmodule Roomy.Models.Room do
     field(:type, :string)
 
     many_to_many(:users, User, join_through: UserRoom)
+    has_many(:messages, Message)
 
     timestamps()
   end

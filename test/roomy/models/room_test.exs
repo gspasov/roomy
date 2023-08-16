@@ -5,11 +5,14 @@ defmodule Roomy.Models.RoomTest do
   alias Roomy.Account
   alias Roomy.Models.User
   alias Roomy.Models.Room
+  alias Roomy.Models.Message
   alias Roomy.Models.Invitation
   alias Roomy.Constants.RoomType
+  alias Roomy.Constants.MessageType
   alias Roomy.Constants.InvitationStatus
 
   require RoomType
+  require MessageType
   require InvitationStatus
 
   describe "when creating a room of type `group`" do
@@ -50,7 +53,7 @@ defmodule Roomy.Models.RoomTest do
                  name: room_name,
                  sender_id: user1.id,
                  invitation_message: invitation_message,
-                 participants_usernames: ["pete", "steve", "garry"]
+                 participants_usernames: [user2.username, user3.username, user4.username]
                })
 
       Enum.each([user2, user3, user4], fn %User{id: user_id} ->
@@ -131,7 +134,7 @@ defmodule Roomy.Models.RoomTest do
                  name: room_name,
                  sender_id: user1.id,
                  invitation_message: invitation_message,
-                 participants_usernames: ["pete", "steve", "garry"]
+                 participants_usernames: [user2.username, user3.username, user4.username]
                })
 
       Enum.each([user2, user3, user4], fn %User{id: user_id} ->
@@ -200,7 +203,7 @@ defmodule Roomy.Models.RoomTest do
                  name: room_name,
                  sender_id: user1.id,
                  invitation_message: invitation_message,
-                 participants_usernames: ["pete", "steve", "garry"]
+                 participants_usernames: [user2.username, user3.username, user4.username]
                })
 
       # Friends of the Sender should be already in the Room
@@ -234,11 +237,58 @@ defmodule Roomy.Models.RoomTest do
                }
       end)
     end
+
+    test "when invited user to group joins, a system message appears",
+         %{
+           user1: user1
+         } do
+      [
+        {:ok, %User{} = user2} | _
+      ] =
+        [
+          %Request.RegisterUser{
+            display_name: "Peter Winchester",
+            username: "pete",
+            password: "123456"
+          }
+        ]
+        |> Enum.map(fn request ->
+          Account.register_user(request)
+        end)
+
+      room_name = "School group"
+      invitation_message = "I'm making this group to connect with my school mates"
+
+      assert {:ok, %Room{id: room_id}} =
+               Account.create_group_chat(%Request.CreateGroupChat{
+                 name: room_name,
+                 sender_id: user1.id,
+                 invitation_message: invitation_message,
+                 participants_usernames: [user2.username]
+               })
+
+      {:ok, %User{received_invitations: [%Invitation{id: invitation_id}]}} =
+        User.get(user2.id, received_invitations: :room)
+
+      {:ok, %Invitation{}} = Account.answer_invitation(invitation_id, true)
+
+      {:ok, %Room{messages: [message]}} = Room.get(room_id, :messages)
+
+      assert strip_unnecessary_fields(message) == %{
+               type: MessageType.system_group_join(),
+               content: "User #{user2.display_name} has joined the group",
+               deleted: false,
+               edited: false,
+               edited_at: nil,
+               sender_id: nil,
+               room_id: room_id
+             }
+    end
   end
 
-  defp strip_unnecessary_fields(%Invitation{} = entity) do
+  defp strip_unnecessary_fields(%Invitation{} = entry) do
     invitation =
-      entity
+      entry
       |> Map.from_struct()
       |> Map.delete(:id)
       |> Map.delete(:__meta__)
@@ -251,21 +301,36 @@ defmodule Roomy.Models.RoomTest do
     %{
       invitation
       | room:
-          entity.room
+          entry.room
           |> Map.from_struct()
           |> Map.delete(:__meta__)
           |> Map.delete(:inserted_at)
           |> Map.delete(:updated_at)
           |> Map.delete(:users)
+          |> Map.delete(:messages)
     }
   end
 
-  defp strip_unnecessary_fields(%Room{} = entity) do
-    entity
+  defp strip_unnecessary_fields(%Room{} = entry) do
+    entry
     |> Map.from_struct()
     |> Map.delete(:__meta__)
     |> Map.delete(:inserted_at)
     |> Map.delete(:updated_at)
     |> Map.delete(:users)
+    |> Map.delete(:messages)
+  end
+
+  defp strip_unnecessary_fields(%Message{} = entry) do
+    entry
+    |> Map.from_struct()
+    |> Map.delete(:__meta__)
+    |> Map.delete(:id)
+    |> Map.delete(:room)
+    |> Map.delete(:sender)
+    |> Map.delete(:inserted_at)
+    |> Map.delete(:updated_at)
+    |> Map.delete(:users_messages)
+    |> Map.delete(:sent_at)
   end
 end
