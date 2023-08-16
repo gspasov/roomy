@@ -40,7 +40,7 @@ defmodule Roomy.Account do
         receiver_username: receiver_username
       }) do
     room_params =
-      &%Room.Create{
+      &%Room.New{
         name: build_room_name(sender_id, &1),
         type: RoomType.dm()
       }
@@ -52,7 +52,7 @@ defmodule Roomy.Account do
       }
 
     invitation_params =
-      &%Invitation.Create{
+      &%Invitation.New{
         message: message,
         sender_id: sender_id,
         room_id: &1,
@@ -119,7 +119,7 @@ defmodule Roomy.Account do
         sender_id: sender_id,
         sent_at: sent_at
       }) do
-    create_params = %Message.Create{
+    create_params = %Message.New{
       content: content,
       room_id: room_id,
       sender_id: sender_id,
@@ -197,7 +197,7 @@ defmodule Roomy.Account do
         invitation_message: message,
         participants_usernames: participants_usernames
       }) do
-    room_params = %Room.Create{
+    room_params = %Room.New{
       name: group_name,
       type: RoomType.group()
     }
@@ -236,7 +236,7 @@ defmodule Roomy.Account do
     create_invitations = fn users, room_id ->
       Enum.each(users, fn %User{id: user_id} ->
         {:ok, %Invitation{}} =
-          Invitation.create(%Invitation.Create{
+          Invitation.create(%Invitation.New{
             message: message,
             sender_id: sender_id,
             room_id: room_id,
@@ -273,12 +273,12 @@ defmodule Roomy.Account do
   defp maybe_become_friends(accepted?, invitation_type, sender_id, receiver_id)
 
   defp maybe_become_friends(true, RoomType.dm(), sender_id, receiver_id) do
-    params_1 = %UserFriend.Create{
+    params_1 = %UserFriend.New{
       user1_id: sender_id,
       user2_id: receiver_id
     }
 
-    params_2 = %UserFriend.Create{
+    params_2 = %UserFriend.New{
       user1_id: receiver_id,
       user2_id: sender_id
     }

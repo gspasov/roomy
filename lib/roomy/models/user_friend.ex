@@ -9,7 +9,7 @@ defmodule Roomy.Models.UserFriend do
   alias Roomy.Repo
   alias Roomy.Models.User
 
-  @fields [:user1_id, :user2_id]
+  @allowed_fields [:user1_id, :user2_id]
 
   schema "users_friends" do
     belongs_to(:user1, User)
@@ -18,15 +18,15 @@ defmodule Roomy.Models.UserFriend do
     timestamps()
   end
 
-  typedstruct module: Create, enforce: true do
+  typedstruct module: New, enforce: true do
     field(:user1_id, pos_integer())
     field(:user2_id, pos_integer())
   end
 
-  def changeset(%__MODULE__.Create{} = attrs) do
+  def changeset(%__MODULE__.New{} = attrs) do
     %__MODULE__{}
-    |> cast(Map.from_struct(attrs), @fields)
-    |> validate_required(@fields)
+    |> cast(Map.from_struct(attrs), @allowed_fields)
+    |> validate_required(@allowed_fields)
     |> Ecto.Changeset.unique_constraint(
       [:user1_id, :user2_id],
       name: :users_friends_user1_id_user2_id_index
@@ -37,7 +37,7 @@ defmodule Roomy.Models.UserFriend do
     )
   end
 
-  def create(%__MODULE__.Create{} = attrs) do
+  def create(%__MODULE__.New{} = attrs) do
     attrs
     |> changeset()
     |> Repo.insert()

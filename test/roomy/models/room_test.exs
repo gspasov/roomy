@@ -268,13 +268,4 @@ defmodule Roomy.Models.RoomTest do
     |> Map.delete(:updated_at)
     |> Map.delete(:users)
   end
-
-  defp delete_key(map, key) when is_atom(key) do
-    delete_key(map, [key])
-  end
-
-  defp delete_key(map, path) do
-    {_, result} = pop_in(map, path)
-    result
-  end
 end

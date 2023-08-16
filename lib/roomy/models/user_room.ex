@@ -10,7 +10,7 @@ defmodule Roomy.Models.UserRoom do
   alias Roomy.Models.User
   alias Roomy.Models.Room
 
-  @fields [:user_id, :room_id]
+  @allowed_fields [:user_id, :room_id]
 
   schema "users_rooms" do
     belongs_to(:user, User)
@@ -26,8 +26,8 @@ defmodule Roomy.Models.UserRoom do
 
   def changeset(%__MODULE__{} = user_room, %__MODULE__.AddUserToRoom{} = attrs) do
     user_room
-    |> cast(Map.from_struct(attrs), @fields)
-    |> validate_required(@fields)
+    |> cast(Map.from_struct(attrs), @allowed_fields)
+    |> validate_required(@allowed_fields)
   end
 
   def add_user_to_room(%__MODULE__.AddUserToRoom{} = attrs) do

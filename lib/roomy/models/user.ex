@@ -25,7 +25,7 @@ defmodule Roomy.Models.User do
           received_invitations: [Invitation.t()]
         }
 
-  @fields [:username, :display_name, :password]
+  @allowed_fields [:username, :display_name, :password]
 
   schema "users" do
     field(:username, :string)
@@ -55,7 +55,7 @@ defmodule Roomy.Models.User do
 
   def registration_changeset(%__MODULE__{} = user, %__MODULE__.Register{} = attrs, opts \\ []) do
     user
-    |> cast(Map.from_struct(attrs), @fields)
+    |> cast(Map.from_struct(attrs), @allowed_fields)
     |> validate_username(opts)
     |> validate_password(opts)
   end

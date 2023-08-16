@@ -12,7 +12,7 @@ defmodule Roomy.Models.UserMessage do
   alias Roomy.Models.Message
 
   @required_fields [:user_id, :message_id]
-  @fields [:seen | @required_fields]
+  @allowed_fields [:seen | @required_fields]
 
   schema "users_messages" do
     field(:seen, :boolean)
@@ -28,7 +28,7 @@ defmodule Roomy.Models.UserMessage do
     field(:seen, boolean())
   end
 
-  typedstruct module: Create do
+  typedstruct module: New do
     field(:user_id, pos_integer(), enforce: true)
     field(:message_id, pos_integer(), enforce: true)
     field(:seen, boolean())
@@ -39,9 +39,9 @@ defmodule Roomy.Models.UserMessage do
     field(:message_id, pos_integer(), enforce: true)
   end
 
-  def changeset(%__MODULE__{} = user_message, %__MODULE__.Create{} = attrs) do
+  def changeset(%__MODULE__{} = user_message, %__MODULE__.New{} = attrs) do
     user_message
-    |> cast(Map.from_struct(attrs), @fields)
+    |> cast(Map.from_struct(attrs), @allowed_fields)
     |> validate_required(@required_fields)
   end
 
@@ -49,7 +49,7 @@ defmodule Roomy.Models.UserMessage do
     Repo.transaction(fn ->
       Enum.each(ids, fn user_id ->
         %__MODULE__{}
-        |> changeset(%__MODULE__.Create{user_id: user_id, message_id: message_id, seen: seen})
+        |> changeset(%__MODULE__.New{user_id: user_id, message_id: message_id, seen: seen})
         |> Repo.insert()
       end)
     end)
@@ -58,7 +58,7 @@ defmodule Roomy.Models.UserMessage do
   def read(%__MODULE__.Read{message_id: message_id, user_id: user_id}) do
     with {:ok, %__MODULE__{} = user_message} <- get_by(message_id: message_id, user_id: user_id) do
       user_message
-      |> changeset(%__MODULE__.Create{message_id: message_id, user_id: user_id, seen: true})
+      |> changeset(%__MODULE__.New{message_id: message_id, user_id: user_id, seen: true})
       |> Repo.update()
     end
   end

@@ -17,7 +17,7 @@ defmodule Roomy.Models.Room do
           users: [User.t()]
         }
 
-  @fields [:name, :type]
+  @allowed_fields [:name, :type]
 
   schema "rooms" do
     field(:name, :string)
@@ -28,19 +28,19 @@ defmodule Roomy.Models.Room do
     timestamps()
   end
 
-  typedstruct module: Create, enforce: true do
+  typedstruct module: New, enforce: true do
     field(:name, String.t())
     field(:type, String.t())
   end
 
-  def changeset(%__MODULE__{} = room, %__MODULE__.Create{} = attrs) do
+  def changeset(%__MODULE__{} = room, %__MODULE__.New{} = attrs) do
     room
-    |> cast(Map.from_struct(attrs), @fields)
-    |> validate_required(@fields)
+    |> cast(Map.from_struct(attrs), @allowed_fields)
+    |> validate_required(@allowed_fields)
   end
 
-  @spec create(__MODULE__.Create.t()) :: {:ok, Room.t()} | {:error, Ecto.Changeset.t()}
-  def create(%__MODULE__.Create{} = attrs) do
+  @spec create(__MODULE__.New.t()) :: {:ok, Room.t()} | {:error, Ecto.Changeset.t()}
+  def create(%__MODULE__.New{} = attrs) do
     %__MODULE__{}
     |> changeset(attrs)
     |> Repo.insert()

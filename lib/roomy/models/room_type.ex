@@ -8,7 +8,7 @@ defmodule Roomy.Models.RoomType do
 
   import Ecto.Changeset
 
-  @fields [:name]
+  @allowed_fields [:name]
 
   @primary_key false
   schema "room_types" do
@@ -23,8 +23,8 @@ defmodule Roomy.Models.RoomType do
 
   def changeset(%__MODULE__{} = room_type, %__MODULE__.New{} = attrs) do
     room_type
-    |> cast(Map.from_struct(attrs), @fields)
-    |> validate_required(@fields)
+    |> cast(Map.from_struct(attrs), @allowed_fields)
+    |> validate_required(@allowed_fields)
   end
 
   def create(%__MODULE__.New{} = attrs) do

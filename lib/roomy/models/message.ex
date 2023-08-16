@@ -23,7 +23,7 @@ defmodule Roomy.Models.Message do
 
   @required_fields [:content, :sent_at, :sender_id, :room_id]
   @required_edit_fields [:content, :edited_at, :edited]
-  @fields [:edited, :deleted, :edited_at | @required_fields]
+  @allowed_fields [:edited, :deleted, :edited_at | @required_fields]
 
   schema "messages" do
     field(:content, :string)
@@ -39,7 +39,7 @@ defmodule Roomy.Models.Message do
     timestamps()
   end
 
-  typedstruct module: Create do
+  typedstruct module: New do
     field(:content, String.t(), enforce: true)
     field(:sent_at, DateTime.t(), enforce: true)
     field(:sender_id, pos_integer(), enforce: true)
@@ -60,21 +60,21 @@ defmodule Roomy.Models.Message do
     field(:room_id, pos_integer())
   end
 
-  def changeset(%__MODULE__{} = message, %__MODULE__.Create{} = attrs) do
+  def changeset(%__MODULE__{} = message, %__MODULE__.New{} = attrs) do
     message
-    |> cast(Map.from_struct(attrs), @fields)
+    |> cast(Map.from_struct(attrs), @allowed_fields)
     |> validate_required(@required_fields)
   end
 
   def edit_changeset(%__MODULE__{} = message, %__MODULE__.Edit{} = attrs) do
     message
-    |> cast(Map.from_struct(attrs), @fields)
+    |> cast(Map.from_struct(attrs), @allowed_fields)
     |> put_change(:edited, true)
     |> validate_required(@required_edit_fields)
   end
 
-  @spec create(__MODULE__.Create.t()) :: {:ok, Ecto.Schema.t()} | {:error, Ecto.Changeset.t()}
-  def create(%__MODULE__.Create{} = attrs) do
+  @spec create(__MODULE__.New.t()) :: {:ok, Ecto.Schema.t()} | {:error, Ecto.Changeset.t()}
+  def create(%__MODULE__.New{} = attrs) do
     %__MODULE__{}
     |> changeset(attrs)
     |> Repo.insert()
@@ -95,10 +95,12 @@ defmodule Roomy.Models.Message do
     end)
   end
 
+  @spec get(pos_integer(), Keyword.t()) :: {:ok, __MODULE__.t()} | {:error, :not_found}
   def get(id, preloads \\ []) when is_number(id) do
     get_by([id: id], preloads)
   end
 
+  @spec get_by(Keyword.t(), Keyword.t()) :: {:ok, __MODULE__.t()} | {:error, :not_found}
   def get_by(opts, preloads \\ []) do
     __MODULE__
     |> Repo.get_by(opts)
@@ -109,6 +111,7 @@ defmodule Roomy.Models.Message do
     end
   end
 
+  @spec all_unread(pos_integer(), pos_integer()) :: [__MODULE__.t()]
   def all_unread(reader_id, room_id) do
     from(m in __MODULE__,
       join: um in UserMessage,
@@ -119,6 +122,7 @@ defmodule Roomy.Models.Message do
     |> Repo.all()
   end
 
+  @spec paginate(__MODULE__.Paginate.t()) :: Scrivener.Page.t()
   def paginate(%__MODULE__.Paginate{page: page, page_size: page_size, room_id: room_id}) do
     from(m in __MODULE__,
       where: m.room_id == ^room_id,

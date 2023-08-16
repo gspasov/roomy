@@ -27,7 +27,7 @@ defmodule Roomy.Models.Invitation do
         }
 
   @required_fields [:sender_id, :receiver_id, :room_id, :status]
-  @fields [:message | @required_fields]
+  @allowed_fields [:message | @required_fields]
 
   schema "invitations" do
     field(:message, :string)
@@ -40,7 +40,7 @@ defmodule Roomy.Models.Invitation do
     timestamps()
   end
 
-  typedstruct module: Create do
+  typedstruct module: New do
     field(:sender_id, pos_integer(), enforce: true)
     field(:receiver_id, pos_integer(), enforce: true)
     field(:room_id, pos_integer(), enforce: true)
@@ -53,9 +53,9 @@ defmodule Roomy.Models.Invitation do
     field(:status, String.t())
   end
 
-  def changeset(%__MODULE__{} = invitation, %__MODULE__.Create{} = attrs) do
+  def changeset(%__MODULE__{} = invitation, %__MODULE__.New{} = attrs) do
     invitation
-    |> cast(Map.from_struct(attrs), @fields)
+    |> cast(Map.from_struct(attrs), @allowed_fields)
     |> validate_required(@required_fields)
   end
 
@@ -66,7 +66,7 @@ defmodule Roomy.Models.Invitation do
     |> validate_change(:status, &validate_status_is_accept_or_reject/2)
   end
 
-  def create(%__MODULE__.Create{} = attrs) do
+  def create(%__MODULE__.New{} = attrs) do
     %__MODULE__{}
     |> changeset(attrs)
     |> Repo.insert()

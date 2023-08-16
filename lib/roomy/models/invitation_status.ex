@@ -8,7 +8,7 @@ defmodule Roomy.Models.InvitationStatus do
 
   import Ecto.Changeset
 
-  @fields [:name]
+  @allowed_fields [:name]
 
   @primary_key false
   schema "invitation_statuses" do
@@ -17,17 +17,17 @@ defmodule Roomy.Models.InvitationStatus do
     timestamps()
   end
 
-  typedstruct module: Create, enforce: true do
+  typedstruct module: New, enforce: true do
     field(:name, String.t())
   end
 
-  def changeset(%__MODULE__{} = invitation_status, %__MODULE__.Create{} = attrs) do
+  def changeset(%__MODULE__{} = invitation_status, %__MODULE__.New{} = attrs) do
     invitation_status
-    |> cast(Map.from_struct(attrs), @fields)
-    |> validate_required(@fields)
+    |> cast(Map.from_struct(attrs), @allowed_fields)
+    |> validate_required(@allowed_fields)
   end
 
-  def create(%__MODULE__.Create{} = attrs) do
+  def create(%__MODULE__.New{} = attrs) do
     %__MODULE__{}
     |> changeset(attrs)
     |> Repo.insert()

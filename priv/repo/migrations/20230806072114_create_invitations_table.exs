@@ -19,7 +19,7 @@ defmodule Roomy.Repo.Migrations.CreateInvitationsTable do
 
     [Status.pending(), Status.rejected(), Status.accepted()]
     |> Enum.each(fn status ->
-      InvitationStatus.create(%InvitationStatus.Create{name: status})
+      InvitationStatus.create(%InvitationStatus.New{name: status})
     end)
 
     create table(:invitations) do
