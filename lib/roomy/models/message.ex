@@ -34,6 +34,8 @@ defmodule Roomy.Models.Message do
   @required_edit_fields [:content, :edited_at, :edited]
   @allowed_edit_fields [:deleted | @required_edit_fields]
 
+  @required_delete_fields [:content, :deleted]
+
   schema "messages" do
     field(:type, :string)
     field(:content, :string)
@@ -85,6 +87,14 @@ defmodule Roomy.Models.Message do
     |> validate_required(@required_edit_fields)
   end
 
+  def delete_changeset(%__MODULE__{} = message) do
+    message
+    |> cast(%{}, @required_delete_fields)
+    |> put_change(:deleted, true)
+    |> put_change(:content, "Deleted message")
+    |> validate_required(@required_delete_fields)
+  end
+
   @spec create(__MODULE__.New.t()) :: {:ok, Ecto.Schema.t()} | {:error, Ecto.Changeset.t()}
   def create(%__MODULE__.New{} = attrs) do
     %__MODULE__{}
@@ -94,9 +104,9 @@ defmodule Roomy.Models.Message do
 
   @spec edit(__MODULE__.Edit.t()) :: {:ok, Ecto.Schema.t()} | {:error, Ecto.Changeset.t()}
   def edit(%__MODULE__.Edit{id: id} = attrs) do
-    Repo.transaction(fn ->
+    Repo.tx(fn ->
       with {:ok, %__MODULE__{} = message} <- get(id),
-           {:ok, %__MODULE__{} = result} <-
+           {:ok, %__MODULE__{}} = result <-
              message
              |> edit_changeset(attrs)
              |> Repo.update() do
@@ -123,12 +133,28 @@ defmodule Roomy.Models.Message do
     end
   end
 
+  @spec delete(pos_integer()) :: {:ok, __MODULE__.t()} | {:error, Changeset.Error.t()}
+  def delete(id) do
+    Repo.tx(fn ->
+      with {:ok, %__MODULE__{} = message} <- get(id),
+           {:ok, %__MODULE__{}} = result <- message |> delete_changeset() |> Repo.update() do
+        result
+      else
+        {:error, reason} -> Repo.rollback(reason)
+      end
+    end)
+  end
+
   @spec all_unread(pos_integer(), pos_integer()) :: [__MODULE__.t()]
   def all_unread(reader_id, room_id) do
     from(m in __MODULE__,
       join: um in UserMessage,
       on: m.id == um.message_id,
-      where: um.user_id == ^reader_id and um.seen == false and m.room_id == ^room_id,
+      where:
+        um.user_id == ^reader_id and
+          um.seen == false and
+          m.room_id == ^room_id and
+          m.deleted == false,
       select: m
     )
     |> Repo.all()

@@ -46,11 +46,15 @@ defmodule Roomy.Models.UserMessage do
   end
 
   def create(%__MODULE__.Multi{user_ids: ids, message_id: message_id, seen: seen}) do
-    Repo.transaction(fn ->
+    Repo.tx(fn ->
       Enum.each(ids, fn user_id ->
         %__MODULE__{}
         |> changeset(%__MODULE__.New{user_id: user_id, message_id: message_id, seen: seen})
         |> Repo.insert()
+        |> case do
+          {:ok, %__MODULE__{}} -> :ok
+          {:error, reason} -> Repo.rollback(reason)
+        end
       end)
     end)
   end

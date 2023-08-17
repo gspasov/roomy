@@ -161,6 +161,33 @@ defmodule Roomy.MessageTest do
     assert message.content == "hello"
   end
 
+  test "Deleting a message", %{user1: user1, room: room} do
+    sent_at = DateTime.utc_now()
+
+    {:ok, %Message{id: message_id}} =
+      Account.send_message(%Request.SendMessage{
+        content: "hello",
+        room_id: room.id,
+        sender_id: user1.id,
+        sent_at: sent_at
+      })
+
+    {:ok, %Message{}} = Account.delete_message(message_id)
+    {:ok, %Message{} = message} = Message.get(message_id)
+
+    assert strip_unnecessary_fields(message) == %{
+             id: message_id,
+             content: "Deleted message",
+             room_id: room.id,
+             sender_id: user1.id,
+             edited: false,
+             edited_at: nil,
+             deleted: true,
+             sent_at: sent_at,
+             type: MessageType.normal()
+           }
+  end
+
   defp strip_unnecessary_fields(message) do
     message
     |> Map.from_struct()

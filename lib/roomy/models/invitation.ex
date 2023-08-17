@@ -87,15 +87,15 @@ defmodule Roomy.Models.Invitation do
   end
 
   def update(%__MODULE__.Update{id: id} = attrs) do
-    Repo.transaction(fn ->
+    Repo.tx(fn ->
       with {:ok, %__MODULE__{} = invitation} <- get(id),
-           {:ok, %__MODULE__{} = result} <-
+           {:ok, %__MODULE__{}} = result <-
              invitation
              |> update_changeset(attrs)
              |> Repo.update() do
         result
       else
-        {:error, reason} -> Repo.rollback(reason)
+        error -> Repo.rollback(error)
       end
     end)
   end

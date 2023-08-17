@@ -62,13 +62,13 @@ defmodule Roomy.Account do
         receiver_id: &2
       }
 
-    Repo.transaction(fn ->
+    Repo.tx(fn ->
       with {:ok, %User{id: receiver_id}} <-
              User.get_by(username: receiver_username),
            {:ok, %Room{id: room_id}} <- Room.create(room_params.(receiver_id)),
            {:ok, %UserRoom{}} <-
              UserRoom.add_user_to_room(user_room_params.(room_id)),
-           {:ok, %Invitation{} = invitation} <-
+           {:ok, %Invitation{}} = invitation <-
              Invitation.create(invitation_params.(room_id, receiver_id)) do
         invitation
       else
@@ -92,7 +92,7 @@ defmodule Roomy.Account do
         InvitationStatus.rejected()
       end
 
-    Repo.transaction(fn ->
+    Repo.tx(fn ->
       with {:ok,
             %Invitation{
               sender_id: sender_id,
@@ -100,7 +100,7 @@ defmodule Roomy.Account do
               receiver: receiver,
               room: %Room{id: room_id, type: room_type}
             }} <- Invitation.get(invitation_id, [:room, :receiver]),
-           {:ok, %Invitation{} = invitation} <-
+           {:ok, %Invitation{}} = invitation <-
              Invitation.update(%Invitation.Update{
                id: invitation_id,
                status: status
@@ -131,9 +131,9 @@ defmodule Roomy.Account do
       sent_at: sent_at
     }
 
-    Repo.transaction(fn ->
+    Repo.tx(fn ->
       with {:ok, %Room{users: users}} <- Room.get(room_id, :users),
-           {:ok, %Message{id: message_id} = message} <-
+           {:ok, %Message{id: message_id}} = message <-
              Message.create(create_params),
            UserMessage.create(%UserMessage.Multi{
              user_ids: Enum.map(users, fn %User{id: id} -> id end) -- [sender_id],
@@ -185,14 +185,21 @@ defmodule Roomy.Account do
       edited_at: edited_at
     }
 
-    with [_ | _] = user_messages <- UserMessage.all(message_id),
-         {:ok, true} <-
-           user_messages
-           |> message_is_unread_by_everyone()
-           |> Utils.check(:message_is_read),
-         {:ok, %Message{}} <- Message.edit(edit_message_params) do
-      :ok
-    end
+    Repo.tx(fn ->
+      with [_ | _] = user_messages <- UserMessage.all(message_id),
+           {:ok, true} <-
+             user_messages
+             |> message_is_unread_by_everyone()
+             |> Utils.check(:message_is_read),
+           {:ok, %Message{}} <- Message.edit(edit_message_params) do
+        :ok
+      end
+    end)
+  end
+
+  @spec delete_message(pos_integer()) :: {:ok, Message.t()} | {:error, Changeset.Error.t()}
+  def delete_message(message_id) do
+    Message.delete(message_id)
   end
 
   @spec create_group_chat(Request.CreateGroupChat.t()) ::
@@ -251,17 +258,17 @@ defmodule Roomy.Account do
       end)
     end
 
-    Repo.transaction(fn ->
+    Repo.tx(fn ->
       with {:ok, participants} <- find_participants.(participants_usernames),
            {:ok, %User{} = sender} <- User.get(sender_id, [:friends]),
-           {:ok, %Room{id: room_id} = room} <- Room.create(room_params),
+           {:ok, %Room{id: room_id}} = room <- Room.create(room_params),
            {sender_friends, invited_users} <-
              filter_participants.(sender, participants),
            :ok <- add_users_to_room.([sender | sender_friends], room_id),
            :ok <- create_invitations.(invited_users, room_id) do
         room
       else
-        {:error, {:user_not_found, _}} = error -> error
+        {:error, {:user_not_found, _}} = error -> {:error, error}
         {:error, reason} -> Repo.rollback(reason)
       end
     end)
@@ -279,9 +286,9 @@ defmodule Roomy.Account do
         sent_at: DateTime.utc_now()
       }
 
-    Repo.transaction(fn ->
+    Repo.tx(fn ->
       with {:ok, %Room{type: RoomType.group()}} <- Room.get(room_id),
-           {:ok, %UserRoom{} = user_room} <- UserRoom.delete(user_room_params),
+           {:ok, %UserRoom{}} = user_room <- UserRoom.delete(user_room_params),
            {:ok, %User{display_name: name}} <- User.get(user_id),
            {:ok, %Message{}} <- Message.create(system_message_params.(name)) do
         user_room
