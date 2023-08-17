@@ -37,4 +37,9 @@ defmodule Roomy.Request do
     field(:name, String.t(), enforce: true)
     field(:invitation_message, String.t())
   end
+
+  typedstruct module: LeaveRoom, enforce: true do
+    field(:user_id, pos_integer())
+    field(:room_id, pos_integer())
+  end
 end

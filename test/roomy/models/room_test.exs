@@ -5,6 +5,7 @@ defmodule Roomy.Models.RoomTest do
   alias Roomy.Account
   alias Roomy.Models.User
   alias Roomy.Models.Room
+  alias Roomy.Models.UserRoom
   alias Roomy.Models.Message
   alias Roomy.Models.Invitation
   alias Roomy.Constants.RoomType
@@ -277,6 +278,58 @@ defmodule Roomy.Models.RoomTest do
       assert strip_unnecessary_fields(message) == %{
                type: MessageType.system_group_join(),
                content: "User #{user2.display_name} has joined the group",
+               deleted: false,
+               edited: false,
+               edited_at: nil,
+               sender_id: nil,
+               room_id: room_id
+             }
+    end
+
+    test "when user leaves a group a system message appears in chat history", %{user1: user1} do
+      [
+        {:ok, %User{} = user2} | _
+      ] =
+        [
+          %Request.RegisterUser{
+            display_name: "Peter Winchester",
+            username: "pete",
+            password: "123456"
+          }
+        ]
+        |> Enum.map(fn request ->
+          Account.register_user(request)
+        end)
+
+      room_name = "School group"
+      invitation_message = "I'm making this group to connect with my school mates"
+
+      assert {:ok, %Room{id: room_id}} =
+               Account.create_group_chat(%Request.CreateGroupChat{
+                 name: room_name,
+                 sender_id: user1.id,
+                 invitation_message: invitation_message,
+                 participants_usernames: [user2.username]
+               })
+
+      {:ok, %User{received_invitations: [%Invitation{id: invitation_id}]}} =
+        User.get(user2.id, received_invitations: :room)
+
+      {:ok, %Invitation{}} = Account.answer_invitation(invitation_id, true)
+
+      {:ok, %UserRoom{}} =
+        Account.leave_room(%Request.LeaveRoom{user_id: user2.id, room_id: room_id})
+
+      {:ok, %Room{messages: messages}} = Room.get(room_id, :messages)
+
+      leave_message =
+        Enum.find(messages, fn %Message{type: type} ->
+          type == MessageType.system_group_leave()
+        end)
+
+      assert strip_unnecessary_fields(leave_message) == %{
+               type: MessageType.system_group_leave(),
+               content: "User #{user2.display_name} has left the group",
                deleted: false,
                edited: false,
                edited_at: nil,

@@ -19,6 +19,7 @@ defmodule Roomy.Account do
   require InvitationStatus
   require RoomType
   require MessageType
+  require Logger
 
   @spec register_user(Request.RegisterUser.t()) ::
           {:ok, User.t()} | {:error, Ecto.Changeset.t()}
@@ -48,7 +49,7 @@ defmodule Roomy.Account do
       }
 
     user_room_params =
-      &%UserRoom.AddUserToRoom{
+      &%UserRoom.New{
         room_id: &1,
         user_id: sender_id
       }
@@ -231,7 +232,7 @@ defmodule Roomy.Account do
     add_users_to_room = fn users, room_id ->
       Enum.each(users, fn %User{id: user_id} ->
         {:ok, %UserRoom{}} =
-          UserRoom.add_user_to_room(%UserRoom.AddUserToRoom{
+          UserRoom.add_user_to_room(%UserRoom.New{
             room_id: room_id,
             user_id: user_id
           })
@@ -262,6 +263,32 @@ defmodule Roomy.Account do
       else
         {:error, {:user_not_found, _}} = error -> error
         {:error, reason} -> Repo.rollback(reason)
+      end
+    end)
+  end
+
+  @spec leave_room(Request.LeaveRoom.t()) :: {:ok, UserRoom.t()} | {:error, Changeset.Error.t()}
+  def leave_room(%Request.LeaveRoom{user_id: user_id, room_id: room_id}) do
+    user_room_params = %UserRoom.New{user_id: user_id, room_id: room_id}
+
+    system_message_params =
+      &%Message.New{
+        content: "User #{&1} has left the group",
+        room_id: room_id,
+        type: MessageType.system_group_leave(),
+        sent_at: DateTime.utc_now()
+      }
+
+    Repo.transaction(fn ->
+      with {:ok, %Room{type: RoomType.group()}} <- Room.get(room_id),
+           {:ok, %UserRoom{} = user_room} <- UserRoom.delete(user_room_params),
+           {:ok, %User{display_name: name}} <- User.get(user_id),
+           {:ok, %Message{}} <- Message.create(system_message_params.(name)) do
+        user_room
+      else
+        {:error, reason} ->
+          Logger.error("Failed to leave room with #{inspect(reason)}")
+          Repo.rollback(reason)
       end
     end)
   end
@@ -300,7 +327,7 @@ defmodule Roomy.Account do
   defp maybe_join_room(accepted?, receiver_id, room_id)
 
   defp maybe_join_room(true, receiver_id, room_id) do
-    params = %UserRoom.AddUserToRoom{
+    params = %UserRoom.New{
       user_id: receiver_id,
       room_id: room_id
     }
