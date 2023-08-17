@@ -1,5 +1,5 @@
 defmodule Roomy.BusTest do
-  use Roomy.DataCase, async: false
+  use Roomy.DataCase, async: true
 
   alias Roomy.Bus
   alias Roomy.Utils
