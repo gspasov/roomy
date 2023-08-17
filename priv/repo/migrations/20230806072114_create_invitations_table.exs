@@ -1,7 +1,6 @@
 defmodule Roomy.Repo.Migrations.CreateInvitationsTable do
   use Ecto.Migration
 
-  alias Roomy.Repo
   alias Roomy.Models.InvitationStatus
   alias Roomy.Constants.InvitationStatus, as: Status
 
