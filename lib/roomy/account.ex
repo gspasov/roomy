@@ -21,8 +21,7 @@ defmodule Roomy.Account do
   require MessageType
   require Logger
 
-  @spec register_user(Request.RegisterUser.t()) ::
-          {:ok, User.t()} | {:error, Ecto.Changeset.t()}
+  @spec register_user(Request.RegisterUser.t()) :: {:ok, User.t()} | {:error, Ecto.Changeset.t()}
   def register_user(%Request.RegisterUser{
         username: username,
         display_name: display_name,
@@ -33,6 +32,14 @@ defmodule Roomy.Account do
       display_name: display_name,
       password: password
     })
+  end
+
+  @spec login_user(Request.LoginUser.t()) :: {:ok, User.t()} | {:error, Ecto.Changeset.t()}
+  def login_user(%Request.LoginUser{username: username, password: password}) do
+    with {:ok, %User{} = user} = result <- User.get_by(username: username),
+         :ok <- Utils.check(User.valid_password?(user, password), :invalid_password) do
+      result
+    end
   end
 
   @spec send_friend_request(Roomy.Request.SendFriendRequest.t()) ::

@@ -58,6 +58,7 @@ defmodule Roomy.Models.User do
     |> cast(Map.from_struct(attrs), @allowed_fields)
     |> validate_username(opts)
     |> validate_password(opts)
+    |> unique_constraint(:username)
   end
 
   def password_changeset(%__MODULE__{} = user, attrs, opts \\ []) do

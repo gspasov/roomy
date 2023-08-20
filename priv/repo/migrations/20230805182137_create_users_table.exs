@@ -10,5 +10,7 @@ defmodule Roomy.Repo.Migrations.CreateUsersTable do
       add(:inserted_at, :utc_datetime_usec, default: fragment("NOW()"))
       add(:updated_at, :utc_datetime_usec, default: fragment("NOW()"))
     end
+
+    create unique_index(:users, [:username])
   end
 end
