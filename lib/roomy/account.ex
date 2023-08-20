@@ -154,9 +154,9 @@ defmodule Roomy.Account do
     end)
   end
 
-  @spec fetch_unread_messages(pos_integer(), pos_integer()) :: [Message.t()]
-  def fetch_unread_messages(reader_id, room_id) do
-    Message.all_unread(reader_id, room_id)
+  @spec fetch_unread_messages(Request.FetchUnreadMessages.t()) :: [Message.t()]
+  def fetch_unread_messages(%Request.FetchUnreadMessages{reader_id: reader_id, room_id: room_id}) do
+    Message.all_unread(%Message.Where{reader_id: reader_id, room_id: room_id})
   end
 
   @spec read_message(Request.ReadMessage.t()) :: :ok | {:error, any()}
@@ -187,7 +187,7 @@ defmodule Roomy.Account do
 
     Repo.tx(fn ->
       with [_ | _] = user_messages <- UserMessage.all(message_id),
-           {:ok, true} <-
+           :ok <-
              user_messages
              |> message_is_unread_by_everyone()
              |> Utils.check(:message_is_read),
@@ -346,9 +346,9 @@ defmodule Roomy.Account do
 
   defp maybe_join_room(_, _, _), do: {:ok, nil}
 
-  def maybe_add_system_message(accepted?, room_type, receiver, room_id)
+  defp maybe_add_system_message(accepted?, room_type, receiver, room_id)
 
-  def maybe_add_system_message(true, RoomType.group(), %User{display_name: name}, room_id) do
+  defp maybe_add_system_message(true, RoomType.group(), %User{display_name: name}, room_id) do
     system_message_params = %Message.New{
       content: "User #{name} has joined the group",
       room_id: room_id,
@@ -361,5 +361,5 @@ defmodule Roomy.Account do
     end
   end
 
-  def maybe_add_system_message(_, _, _, _), do: {:ok, nil}
+  defp maybe_add_system_message(_, _, _, _), do: {:ok, nil}
 end

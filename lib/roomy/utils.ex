@@ -24,7 +24,7 @@ defmodule Roomy.Utils do
   def check(boolean, error)
 
   def check(true, _) do
-    {:ok, true}
+    :ok
   end
 
   def check(false, error) do

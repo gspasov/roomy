@@ -7,6 +7,11 @@ defmodule Roomy.Request do
     field(:password, String.t())
   end
 
+  typedstruct module: LoginUser, enforce: true do
+    field(:username, String.t())
+    field(:password, String.t())
+  end
+
   typedstruct module: SendFriendRequest do
     field(:receiver_username, String.t(), enforce: true)
     field(:sender_id, pos_integer(), enforce: true)
@@ -20,9 +25,14 @@ defmodule Roomy.Request do
     field(:room_id, pos_integer())
   end
 
-  typedstruct module: ReadMessage do
-    field(:message_id, pos_integer(), enforce: true)
+  typedstruct module: ReadMessage, enforce: true do
+    field(:message_id, pos_integer())
+    field(:reader_id, pos_integer())
+  end
+
+  typedstruct module: FetchUnreadMessages do
     field(:reader_id, pos_integer(), enforce: true)
+    field(:room_id, pos_integer())
   end
 
   typedstruct module: EditMessage, enforce: true do

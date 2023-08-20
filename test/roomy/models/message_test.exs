@@ -93,7 +93,11 @@ defmodule Roomy.MessageTest do
     Account.read_message(%Request.ReadMessage{message_id: read_message_id, reader_id: user2.id})
 
     # The second message should be still unread
-    [unread_message] = Account.fetch_unread_messages(user2.id, room.id)
+    [unread_message] =
+      Account.fetch_unread_messages(%Request.FetchUnreadMessages{
+        reader_id: user2.id,
+        room_id: room.id
+      })
 
     assert strip_unnecessary_fields(unread_message) ==
              %{

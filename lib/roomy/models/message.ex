@@ -74,6 +74,13 @@ defmodule Roomy.Models.Message do
     field(:room_id, pos_integer())
   end
 
+  typedstruct module: Where do
+    field(:reader_id, pos_integer())
+    field(:room_id, pos_integer())
+    field(:seen, boolean(), default: false)
+    field(:deleted, boolean(), default: false)
+  end
+
   def changeset(%__MODULE__{} = message, %__MODULE__.New{} = attrs) do
     message
     |> cast(Map.from_struct(attrs), @allowed_fields)
@@ -137,7 +144,7 @@ defmodule Roomy.Models.Message do
   def delete(id) do
     Repo.tx(fn ->
       with {:ok, %__MODULE__{} = message} <- get(id),
-           {:ok, %__MODULE__{}} = result <- message |> delete_changeset() |> Repo.update() do
+           {:ok, %__MODULE__{}} = result <- Repo.update(delete_changeset(message)) do
         result
       else
         {:error, reason} -> Repo.rollback(reason)
@@ -145,19 +152,37 @@ defmodule Roomy.Models.Message do
     end)
   end
 
-  @spec all_unread(pos_integer(), pos_integer()) :: [__MODULE__.t()]
-  def all_unread(reader_id, room_id) do
-    from(m in __MODULE__,
-      join: um in UserMessage,
-      on: m.id == um.message_id,
-      where:
-        um.user_id == ^reader_id and
-          um.seen == false and
-          m.room_id == ^room_id and
-          m.deleted == false,
-      select: m
+  @spec all_unread(__MODULE__.Where.t()) :: [__MODULE__.t()]
+  def all_unread(%__MODULE__.Where{} = filters) do
+    from(message in __MODULE__,
+      as: :message,
+      join: user_message in assoc(message, :users_messages),
+      as: :user_message,
+      where: ^dynamic_where(filters),
+      select: message
     )
     |> Repo.all()
+  end
+
+  defp dynamic_where(%__MODULE__.Where{} = where_filter) do
+    where_filter
+    |> Map.from_struct()
+    |> Enum.reduce(dynamic(true), fn
+      {:room_id, room_id}, dynamic ->
+        dynamic([message: message], ^dynamic and message.room_id == ^room_id)
+
+      {:deleted, deleted}, dynamic ->
+        dynamic([message: message], ^dynamic and message.deleted == ^deleted)
+
+      {:reader_id, reader_id}, dynamic ->
+        dynamic([user_message: user_message], ^dynamic and user_message.user_id == ^reader_id)
+
+      {:seen, seen}, dynamic ->
+        dynamic([user_message: user_message], ^dynamic and user_message.seen == ^seen)
+
+      _, dynamic ->
+        dynamic
+    end)
   end
 
   @spec paginate(__MODULE__.Paginate.t()) :: Scrivener.Page.t()
