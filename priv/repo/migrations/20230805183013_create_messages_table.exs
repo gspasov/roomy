@@ -10,8 +10,7 @@ defmodule Roomy.Repo.Migrations.CreateMessagesTable do
     create table(:message_types, primary_key: false) do
       add(:name, :text, primary_key: true, null: false)
 
-      add(:inserted_at, :utc_datetime_usec, default: fragment("NOW()"))
-      add(:updated_at, :utc_datetime_usec, default: fragment("NOW()"))
+      timestamps(type: :utc_datetime_usec, default: fragment("NOW()"))
     end
 
     flush()
@@ -32,8 +31,7 @@ defmodule Roomy.Repo.Migrations.CreateMessagesTable do
       add(:sender_id, references(:users))
       add(:room_id, references(:rooms), null: false)
 
-      add(:inserted_at, :utc_datetime_usec, default: fragment("NOW()"))
-      add(:updated_at, :utc_datetime_usec, default: fragment("NOW()"))
+      timestamps(type: :utc_datetime_usec, default: fragment("NOW()"))
     end
   end
 end

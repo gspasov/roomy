@@ -7,8 +7,7 @@ defmodule Roomy.Repo.Migrations.CreateUserMessageTable do
       add(:message_id, references(:messages), null: false)
       add(:seen, :boolean, default: false)
 
-      add(:inserted_at, :utc_datetime_usec, default: fragment("NOW()"))
-      add(:updated_at, :utc_datetime_usec, default: fragment("NOW()"))
+      timestamps(type: :utc_datetime_usec, default: fragment("NOW()"))
     end
   end
 end

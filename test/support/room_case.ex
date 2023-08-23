@@ -25,7 +25,7 @@ defmodule Roomy.RoomCase do
     end
   end
 
-  setup_all tags do
+  setup_all _tags do
     :ok = Ecto.Adapters.SQL.Sandbox.checkout(Roomy.Repo)
     Ecto.Adapters.SQL.Sandbox.mode(Roomy.Repo, :auto)
 

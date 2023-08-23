@@ -10,8 +10,7 @@ defmodule Roomy.Repo.Migrations.CreateInvitationsTable do
     create table(:invitation_statuses, primary_key: false) do
       add(:name, :text, primary_key: true, null: false)
 
-      add(:inserted_at, :utc_datetime_usec, default: fragment("NOW()"))
-      add(:updated_at, :utc_datetime_usec, default: fragment("NOW()"))
+      timestamps(type: :utc_datetime_usec, default: fragment("NOW()"))
     end
 
     flush()
@@ -29,16 +28,14 @@ defmodule Roomy.Repo.Migrations.CreateInvitationsTable do
       add(:room_id, references(:rooms), null: false)
       add(:status, references(:invitation_statuses, type: :text, column: :name), null: false)
 
-      add(:inserted_at, :utc_datetime_usec, default: fragment("NOW()"))
-      add(:updated_at, :utc_datetime_usec, default: fragment("NOW()"))
+      timestamps(type: :utc_datetime_usec, default: fragment("NOW()"))
     end
 
     create table(:users_friends) do
       add(:user1_id, references(:users), null: false)
       add(:user2_id, references(:users), null: false)
 
-      add(:inserted_at, :utc_datetime_usec, default: fragment("NOW()"))
-      add(:updated_at, :utc_datetime_usec, default: fragment("NOW()"))
+      timestamps(type: :utc_datetime_usec, default: fragment("NOW()"))
     end
 
     create index(:users_friends, [:user1_id])

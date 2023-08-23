@@ -10,8 +10,7 @@ defmodule Roomy.Repo.Migrations.CreateRoomsTable do
     create table(:room_types, primary_key: false) do
       add(:name, :text, primary_key: true, null: false)
 
-      add(:inserted_at, :utc_datetime_usec, default: fragment("NOW()"))
-      add(:updated_at, :utc_datetime_usec, default: fragment("NOW()"))
+      timestamps(type: :utc_datetime_usec, default: fragment("NOW()"))
     end
 
     flush()
@@ -25,8 +24,7 @@ defmodule Roomy.Repo.Migrations.CreateRoomsTable do
       add(:name, :text, null: false)
       add(:type, :text, null: false)
 
-      add(:inserted_at, :utc_datetime_usec, default: fragment("NOW()"))
-      add(:updated_at, :utc_datetime_usec, default: fragment("NOW()"))
+      timestamps(type: :utc_datetime_usec, default: fragment("NOW()"))
     end
   end
 end
