@@ -20,7 +20,7 @@ defmodule Roomy.Utils do
         {:error, :some_reason} -> :error
       end
   """
-  @spec check(boolean(), error) :: {:ok, true} | {:error, error} when error: atom()
+  @spec check(boolean(), error) :: :ok | {:error, error} when error: atom()
   def check(boolean, error)
 
   def check(true, _) do
