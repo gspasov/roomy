@@ -6,49 +6,60 @@ defmodule Roomy.UserTest do
   alias Roomy.Models.User
 
   test "user can register" do
+    username = create_username()
+
     {:ok, user} =
       Account.register_user(%Request.RegisterUser{
-        username: "example",
+        username: username,
         display_name: "Spider man",
         password: "123456"
       })
 
     assert strip_unnecessary_fields(user) == %{
-             username: "example",
+             username: username,
              display_name: "Spider man"
            }
   end
 
   test "user can login" do
+    username = create_username()
+
     {:ok, %User{} = user} =
       Account.register_user(%Request.RegisterUser{
-        username: "example",
+        username: username,
         display_name: "Spider man",
         password: "123456"
       })
 
     {:ok, %User{} = ^user} =
-      Account.login_user(%Request.LoginUser{username: "example", password: "123456"})
+      Account.login_user(%Request.LoginUser{username: username, password: "123456"})
 
     assert strip_unnecessary_fields(user) == %{
-             username: "example",
+             username: username,
              display_name: "Spider man"
            }
   end
 
   test "user cannot login with false credentials" do
+    non_existing_username = "not_exist"
+
     {:error, reason} =
-      Account.login_user(%Request.LoginUser{username: "not_exist", password: "123456"})
+      Account.login_user(%Request.LoginUser{
+        username: non_existing_username,
+        password: "123456"
+      })
 
     assert reason == :not_found
   end
 
   test "user password must be at least 6 characters" do
+    too_short_password = "12345"
+
     {:error, %Ecto.Changeset{errors: errors}} =
       Account.register_user(%Request.RegisterUser{
-        username: "example",
+        username: "example3",
         display_name: "Spider man",
-        password: "12345"
+        password: too_short_password
       })
 
     assert errors == [
@@ -58,10 +69,12 @@ defmodule Roomy.UserTest do
            ]
   end
 
-  test "cannot register user with forbidden special symbol" do
+  test "cannot register user with forbidden special symbol in username" do
+    username_with_invalid_character = "example%"
+
     {:error, %Ecto.Changeset{errors: errors}} =
       Account.register_user(%Request.RegisterUser{
-        username: "example%",
+        username: username_with_invalid_character,
         display_name: "Spider man",
         password: "123456"
       })
@@ -75,9 +88,11 @@ defmodule Roomy.UserTest do
   end
 
   test "cannot register user with bad username length" do
+    too_short_username = "e"
+
     {:error, %Ecto.Changeset{errors: errors_1}} =
       Account.register_user(%Request.RegisterUser{
-        username: "e",
+        username: too_short_username,
         display_name: "Spider man",
         password: "123456"
       })
@@ -115,21 +130,23 @@ defmodule Roomy.UserTest do
   end
 
   test "cannot have two users with the same username" do
+    username = create_username()
+
     {:ok, user} =
       Account.register_user(%Request.RegisterUser{
-        username: "example",
+        username: username,
         display_name: "Spider man",
         password: "123456"
       })
 
     assert strip_unnecessary_fields(user) == %{
-             username: "example",
+             username: username,
              display_name: "Spider man"
            }
 
     {:error, %Ecto.Changeset{errors: errors}} =
       Account.register_user(%Request.RegisterUser{
-        username: "example",
+        username: username,
         display_name: "Bat man",
         password: "123456"
       })
@@ -139,6 +156,10 @@ defmodule Roomy.UserTest do
                {"has already been taken",
                 [constraint: :unique, constraint_name: "users_username_index"]}
            ]
+  end
+
+  defp create_username() do
+    "example#{:random.uniform(1_000_000_000)}"
   end
 
   defp strip_unnecessary_fields(user) do
