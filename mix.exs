@@ -52,7 +52,8 @@ defmodule Roomy.MixProject do
       {:plug_cowboy, "~> 2.5"},
       {:bcrypt_elixir, "~> 3.0"},
       {:typed_struct, "~> 0.3.0"},
-      {:scrivener_ecto, "~> 2.0"}
+      {:scrivener_ecto, "~> 2.0"},
+      {:dialyxir, "~> 1.3", only: [:dev], runtime: false}
     ]
   end
 
@@ -64,9 +65,9 @@ defmodule Roomy.MixProject do
   # See the documentation for `Mix` for more info on aliases.
   defp aliases do
     [
-      setup: ["deps.get", "check", "ecto.setup", "assets.setup", "assets.build"],
+      setup: ["deps.get", "compile", "ecto.setup", "assets.setup", "assets.build"],
       test: ["ecto.drop", "ecto.create --quiet", "ecto.migrate --quiet", "test"],
-      check: ["compile --warnings-as-errors --force"],
+      compile: ["compile --warnings-as-errors --force"],
       "ecto.setup": ["ecto.create", "ecto.migrate", "run priv/repo/seeds.exs"],
       "ecto.reset": ["ecto.drop", "ecto.setup"],
       "assets.setup": ["tailwind.install --if-missing", "esbuild.install --if-missing"],

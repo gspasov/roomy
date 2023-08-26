@@ -76,10 +76,12 @@ defmodule Roomy.Models.User do
     |> Repo.insert()
   end
 
+  @spec get(pos_integer(), [atom()]) :: {:ok, __MODULE__.t()} | {:error, :not_found}
   def get(id, preloads \\ []) when is_number(id) do
     get_by([id: id], preloads)
   end
 
+  @spec get_by([{atom(), any()}], [atom()]) :: {:ok, __MODULE__.t()} | {:error, :not_found}
   def get_by(opts, preloads \\ []) do
     __MODULE__
     |> Repo.get_by(opts)
@@ -93,6 +95,9 @@ defmodule Roomy.Models.User do
   def delete(%__MODULE__{} = user) do
     Repo.delete(user)
   end
+
+  @spec valid_password?(__MODULE__.t(), String.t()) :: boolean()
+  def valid_password?(user, password)
 
   def valid_password?(
         %__MODULE__{hashed_password: hashed_password},

@@ -204,19 +204,22 @@ defmodule Roomy.Account do
     end)
   end
 
-  @spec delete_message(pos_integer()) :: {:ok, Message.t()} | {:error, Changeset.Error.t()}
+  @spec delete_message(pos_integer()) ::
+          {:ok, Message.t()} | {:error, Ecto.Changeset.t(Message.t())}
   def delete_message(message_id) do
     Message.delete(message_id)
   end
 
   @spec create_group_chat(Request.CreateGroupChat.t()) ::
-          {:ok, Room.t()} | {:error, Changeset.Error.t()}
-  def create_group_chat(%Request.CreateGroupChat{
-        name: group_name,
-        sender_id: sender_id,
-        invitation_message: message,
-        participants_usernames: participants_usernames
-      }) do
+          {:ok, Room.t()} | {:error, {:user_not_found, String.t()} | Ecto.Changeset.t(any())}
+  def create_group_chat(
+        %Request.CreateGroupChat{
+          name: group_name,
+          sender_id: sender_id,
+          invitation_message: message,
+          participants_usernames: participants_usernames
+        } = request
+      ) do
     room_params = %Room.New{
       name: group_name,
       type: RoomType.group()
@@ -275,14 +278,19 @@ defmodule Roomy.Account do
            :ok <- create_invitations.(invited_users, room_id) do
         room
       else
-        {:error, {:user_not_found, _}} = error -> {:error, error}
-        {:error, reason} -> Repo.rollback(reason)
+        {:error, reason} ->
+          Logger.error(
+            "Failed to create group chat for #{inspect(request)} with #{inspect(reason)}"
+          )
+
+          Repo.rollback(reason)
       end
     end)
   end
 
-  @spec leave_room(Request.LeaveRoom.t()) :: {:ok, UserRoom.t()} | {:error, Changeset.Error.t()}
-  def leave_room(%Request.LeaveRoom{user_id: user_id, room_id: room_id}) do
+  @spec leave_room(Request.LeaveRoom.t()) ::
+          {:ok, UserRoom.t()} | {:error, Ecto.Changeset.t(any())}
+  def leave_room(%Request.LeaveRoom{user_id: user_id, room_id: room_id} = request) do
     user_room_params = %UserRoom.New{user_id: user_id, room_id: room_id}
 
     system_message_params =
@@ -301,7 +309,7 @@ defmodule Roomy.Account do
         user_room
       else
         {:error, reason} ->
-          Logger.error("Failed to leave room with #{inspect(reason)}")
+          Logger.error("Failed to leave room for #{inspect(request)} with #{inspect(reason)}")
           Repo.rollback(reason)
       end
     end)

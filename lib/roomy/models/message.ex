@@ -140,7 +140,8 @@ defmodule Roomy.Models.Message do
     end
   end
 
-  @spec delete(pos_integer()) :: {:ok, __MODULE__.t()} | {:error, Changeset.Error.t()}
+  @spec delete(pos_integer()) ::
+          {:ok, __MODULE__.t()} | {:error, Ecto.Changeset.t(__MODULE__.t())}
   def delete(id) do
     Repo.tx(fn ->
       with {:ok, %__MODULE__{} = message} <- get(id),

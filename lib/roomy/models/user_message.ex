@@ -11,6 +11,15 @@ defmodule Roomy.Models.UserMessage do
   alias Roomy.Models.User
   alias Roomy.Models.Message
 
+  @type t :: %__MODULE__{
+          id: pos_integer(),
+          seen: boolean(),
+          user_id: pos_integer(),
+          message_id: pos_integer(),
+          user: User.t(),
+          message: Message.t()
+        }
+
   @required_fields [:user_id, :message_id]
   @allowed_fields [:seen | @required_fields]
 

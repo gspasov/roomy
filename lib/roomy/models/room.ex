@@ -42,7 +42,8 @@ defmodule Roomy.Models.Room do
     |> validate_required(@allowed_fields)
   end
 
-  @spec create(__MODULE__.New.t()) :: {:ok, Room.t()} | {:error, Ecto.Changeset.t()}
+  @spec create(__MODULE__.New.t()) ::
+          {:ok, __MODULE__.t()} | {:error, Ecto.Changeset.t(__MODULE__.t())}
   def create(%__MODULE__.New{} = attrs) do
     %__MODULE__{}
     |> changeset(attrs)

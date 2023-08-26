@@ -10,6 +10,16 @@ defmodule Roomy.Models.UserRoom do
   alias Roomy.Models.User
   alias Roomy.Models.Room
 
+  @type t :: %__MODULE__{
+          id: pos_integer(),
+          user_id: pos_integer(),
+          room_id: pos_integer(),
+          user: User.t(),
+          room: Room.t(),
+          inserted_at: DateTime.t(),
+          updated_at: DateTime.t()
+        }
+
   @allowed_fields [:user_id, :room_id]
 
   schema "users_rooms" do
