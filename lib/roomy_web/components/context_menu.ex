@@ -1,7 +1,7 @@
-defmodule RoomyWeb.Component.ContextMenu do
+defmodule RoomyWeb.Components.ContextMenu do
   use RoomyWeb, :html
 
-  alias RoomyWeb.Component.Core
+  alias RoomyWeb.Components.Core
 
   def render(assigns) do
     ~H"""

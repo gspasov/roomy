@@ -1,7 +1,7 @@
 defmodule RoomyWeb.HomeLive do
   use RoomyWeb, :live_view
 
-  alias RoomyWeb.Component.ContextMenu
+  alias RoomyWeb.Components.ContextMenu
 
   @impl true
   def mount(_params, _session, socket) do
