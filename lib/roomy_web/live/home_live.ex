@@ -1,6 +1,8 @@
 defmodule RoomyWeb.HomeLive do
   use RoomyWeb, :live_view
 
+  alias RoomyWeb.Component.ContextMenu
+
   @impl true
   def mount(_params, _session, socket) do
     chat = [
@@ -37,6 +39,7 @@ defmodule RoomyWeb.HomeLive do
       )
 
     ~H"""
+    <ContextMenu.render />
     <div class="flex h-screen gap-2 p-2 bg-neutral-50">
       <!-- Sidebar -->
       <div class={"min-w-18 border rounded-xl border-gray-200 " <> @shadow}>
@@ -55,9 +58,9 @@ defmodule RoomyWeb.HomeLive do
             <li :for={user <- @users} key={user.id} class="cursor-pointer rounded-md mb-1 font-bold">
               <div class="flex py-2 px-2 gap-2 items-center rounded-md hover:bg-gray-200">
                 <div class="flex items-end">
-                  <div class="w-10 h-10 rounded-full bg-gray-500"/>
-                  <div :if={user.is_online} class="w-2.5 h-2.5 rounded-full bg-green-700"/>
-                  <div :if={not user.is_online} class="w-2.5 h-2.5 rounded-full bg-red-700"/>
+                  <div class="w-10 h-10 rounded-full bg-gray-500" />
+                  <div :if={user.is_online} class="w-2.5 h-2.5 rounded-full bg-green-700" />
+                  <div :if={not user.is_online} class="w-2.5 h-2.5 rounded-full bg-red-700" />
                 </div>
                 <div>
                   <span><%= user.username %></span>

@@ -84,7 +84,7 @@ defmodule RoomyWeb do
       # HTML escaping functionality
       import Phoenix.HTML
       # Core UI components and translation
-      import RoomyWeb.CoreComponents
+      import RoomyWeb.Component.Core
       import RoomyWeb.Gettext
 
       # Shortcut for generating JS commands

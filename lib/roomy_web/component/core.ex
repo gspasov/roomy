@@ -1,4 +1,4 @@
-defmodule RoomyWeb.CoreComponents do
+defmodule RoomyWeb.Component.Core do
   @moduledoc """
   Provides core UI components.
 
@@ -606,6 +606,14 @@ defmodule RoomyWeb.CoreComponents do
   end
 
   ## JS Commands
+
+  def toggle(js \\ %JS{}, selector) do
+    JS.toggle(js, to: selector)
+  end
+
+  def hide_fast(js \\ %JS{}, selector) do
+    JS.hide(js, to: selector)
+  end
 
   def show(js \\ %JS{}, selector) do
     JS.show(js,
