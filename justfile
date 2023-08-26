@@ -20,6 +20,9 @@ server:
 web:
   iex -S mix phx.server
 
+format:
+  mix format
+
 test *args:
   mix test {{args}}
 
