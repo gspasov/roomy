@@ -26,17 +26,17 @@ defmodule Roomy.Models.RoomTest do
         {:ok, %User{} = user4} | _
       ] =
         [
-          %Request.RegisterUser{
+          %{
             display_name: "Peter Winchester",
             username: "pete",
             password: "123456"
           },
-          %Request.RegisterUser{
+          %{
             display_name: "Steven Turner",
             username: "steve",
             password: "123456"
           },
-          %Request.RegisterUser{
+          %{
             display_name: "Garry Simpson",
             username: "garry",
             password: "123456"
@@ -85,17 +85,17 @@ defmodule Roomy.Models.RoomTest do
         {:ok, %User{} = user4} | _
       ] =
         [
-          %Request.RegisterUser{
+          %{
             display_name: "Peter Winchester",
             username: "pete",
             password: "123456"
           },
-          %Request.RegisterUser{
+          %{
             display_name: "Steven Turner",
             username: "steve",
             password: "123456"
           },
-          %Request.RegisterUser{
+          %{
             display_name: "Garry Simpson",
             username: "garry",
             password: "123456"
@@ -161,17 +161,17 @@ defmodule Roomy.Models.RoomTest do
         {:ok, %User{} = user4} | _
       ] =
         [
-          %Request.RegisterUser{
+          %{
             display_name: "Peter Winchester",
             username: "pete",
             password: "123456"
           },
-          %Request.RegisterUser{
+          %{
             display_name: "Steven Turner",
             username: "steve",
             password: "123456"
           },
-          %Request.RegisterUser{
+          %{
             display_name: "Garry Simpson",
             username: "garry",
             password: "123456"
@@ -247,7 +247,7 @@ defmodule Roomy.Models.RoomTest do
         {:ok, %User{} = user2} | _
       ] =
         [
-          %Request.RegisterUser{
+          %{
             display_name: "Peter Winchester",
             username: "pete",
             password: "123456"
@@ -291,7 +291,7 @@ defmodule Roomy.Models.RoomTest do
         {:ok, %User{} = user2} | _
       ] =
         [
-          %Request.RegisterUser{
+          %{
             display_name: "Peter Winchester",
             username: "pete",
             password: "123456"

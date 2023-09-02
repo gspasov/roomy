@@ -12,6 +12,7 @@ defmodule Roomy.Account do
   alias Roomy.Models.Invitation
   alias Roomy.Models.UserFriend
   alias Roomy.Models.UserRoom
+  alias Roomy.Models.UserToken
   alias Roomy.Constants.InvitationStatus
   alias Roomy.Constants.RoomType
   alias Roomy.Constants.MessageType
@@ -21,17 +22,82 @@ defmodule Roomy.Account do
   require MessageType
   require Logger
 
-  @spec register_user(Request.RegisterUser.t()) :: {:ok, User.t()} | {:error, Ecto.Changeset.t()}
-  def register_user(%Request.RegisterUser{
-        username: username,
-        display_name: display_name,
-        password: password
-      }) do
-    User.create(%User.Register{
-      username: username,
-      display_name: display_name,
-      password: password
-    })
+  def get_user_by_session_token(token) do
+    User.get_by_session_token(token)
+  end
+
+  def create_session_token(%User{} = user) do
+    UserToken.create_session_token(user)
+  end
+
+  def delete_user_session_token(token) do
+    Repo.delete_all(UserToken.token_and_context_query(token, "session"))
+    :ok
+  end
+
+  def get_user_by_username_and_password(username, password) do
+    with {:ok, %User{} = user} <- User.get_by(username: username),
+         true <- User.valid_password?(user, password) do
+      {:ok, user}
+    else
+      _ -> {:error, :not_found}
+    end
+  end
+
+  def change_user_registration(%User{} = user, attrs \\ %{}) do
+    User.registration_changeset(user, attrs, hash_password: false)
+  end
+
+  def change_user_username(%User{} = user, attrs \\ %{}) do
+    User.username_changeset(user, attrs)
+  end
+
+  def change_user_password(%User{} = user, attrs \\ %{}) do
+    User.password_changeset(user, attrs, hash_password: false)
+  end
+
+  def apply_user_username(%User{} = user, password, attrs) do
+    user
+    |> User.username_changeset(attrs)
+    |> User.validate_current_password(password)
+    |> Ecto.Changeset.apply_action(:update)
+  end
+
+  def update_user_username(%User{} = user, password, attrs) do
+    changeset =
+      user
+      |> User.username_changeset(attrs)
+      |> User.validate_current_password(password)
+
+    Ecto.Multi.new()
+    |> Ecto.Multi.update(:user, changeset)
+    |> Ecto.Multi.delete_all(:tokens, UserToken.user_and_contexts_query(user, ["session"]))
+    |> Repo.transaction()
+    |> case do
+      {:ok, %{user: %User{} = user}} -> {:ok, user}
+      {:error, :user, changeset, _} -> {:error, changeset}
+    end
+  end
+
+  def update_user_password(%User{} = user, password, attrs) do
+    changeset =
+      user
+      |> User.password_changeset(attrs)
+      |> User.validate_current_password(password)
+
+    Ecto.Multi.new()
+    |> Ecto.Multi.update(:user, changeset)
+    |> Ecto.Multi.delete_all(:tokens, UserToken.user_and_contexts_query(user, :all))
+    |> Repo.transaction()
+    |> case do
+      {:ok, %{user: user}} -> {:ok, user}
+      {:error, :user, changeset, _} -> {:error, changeset}
+    end
+  end
+
+  @spec register_user(map()) :: {:ok, User.t()} | {:error, Ecto.Changeset.t()}
+  def register_user(register_params) do
+    User.create(register_params)
   end
 
   @spec login_user(Request.LoginUser.t()) :: {:ok, User.t()} | {:error, Ecto.Changeset.t()}

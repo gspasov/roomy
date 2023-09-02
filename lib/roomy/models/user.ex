@@ -4,6 +4,7 @@ defmodule Roomy.Models.User do
   use Ecto.Schema
   use TypedStruct
 
+  import Ecto.Query
   import Ecto.Changeset
 
   alias Roomy.Repo
@@ -13,6 +14,7 @@ defmodule Roomy.Models.User do
   alias Roomy.Models.UserRoom
   alias Roomy.Models.UserMessage
   alias Roomy.Models.UserFriend
+  alias Roomy.Models.UserToken
 
   @type t :: %__MODULE__{
           id: pos_integer(),
@@ -22,10 +24,18 @@ defmodule Roomy.Models.User do
           messages: [Message.t()],
           friends: [__MODULE__.t()],
           sent_invitations: [Invitation.t()],
-          received_invitations: [Invitation.t()]
+          received_invitations: [Invitation.t()],
+          tokens: [UserToken.t()],
+          inserted_at: DateTime.t(),
+          updated_at: DateTime.t()
         }
 
+  @session_validity_in_days 60
+
   @allowed_fields [:username, :display_name, :password]
+  @default_preloads [:rooms, :messages, :friends, :received_invitations]
+
+  def default_preloads, do: @default_preloads
 
   schema "users" do
     field(:username, :string)
@@ -43,34 +53,39 @@ defmodule Roomy.Models.User do
 
     has_many(:sent_invitations, Invitation, foreign_key: :sender_id)
     has_many(:received_invitations, Invitation, foreign_key: :receiver_id)
+    has_many(:tokens, UserToken)
 
     timestamps()
   end
 
   typedstruct module: Register do
-    field :username, String.t(), enforce: true
-    field :password, String.t(), enforce: true
-    field :display_name, String.t()
+    field(:username, String.t(), enforce: true)
+    field(:password, String.t(), enforce: true)
+    field(:display_name, String.t())
   end
 
-  def registration_changeset(%__MODULE__{} = user, %__MODULE__.Register{} = attrs, opts \\ []) do
+  def registration_changeset(%__MODULE__{} = user, attrs, opts \\ []) do
     user
-    |> cast(Map.from_struct(attrs), @allowed_fields)
+    |> cast(attrs, @allowed_fields)
     |> validate_username(opts)
     |> validate_password(opts)
-    |> unique_constraint(:username)
   end
 
   def password_changeset(%__MODULE__{} = user, attrs, opts \\ []) do
     user
     |> cast(attrs, [:password])
-    |> validate_required([:password])
     |> validate_confirmation(:password, message: "does not match password")
     |> validate_password(opts)
   end
 
-  @spec create(__MODULE__.Register.t()) :: {:ok, __MODULE__.t()} | {:error, Ecto.Changeset.t()}
-  def create(%__MODULE__.Register{} = attrs) do
+  def username_changeset(%__MODULE__{} = user, attrs, opts \\ []) do
+    user
+    |> cast(attrs, [:username])
+    |> validate_username(opts)
+  end
+
+  @spec create(map()) :: {:ok, __MODULE__.t()} | {:error, Ecto.Changeset.t()}
+  def create(attrs) do
     %__MODULE__{}
     |> registration_changeset(attrs)
     |> Repo.insert()
@@ -90,6 +105,16 @@ defmodule Roomy.Models.User do
       nil -> {:error, :not_found}
       entry -> {:ok, entry}
     end
+  end
+
+  def get_by_session_token(token) do
+    from(user in __MODULE__,
+      join: token in ^UserToken.token_and_context_query(token, "session"),
+      on: user.id == token.user_id,
+      where: token.inserted_at > ago(@session_validity_in_days, "day"),
+      preload: ^@default_preloads
+    )
+    |> Repo.one()
   end
 
   def delete(%__MODULE__{} = user) do
@@ -128,6 +153,7 @@ defmodule Roomy.Models.User do
         message: "The only valid special characters are dots, underscores and hyphens"
       )
       |> validate_length(:username, min: 2, max: 32)
+      |> unsafe_validate_unique(:username, Repo)
       |> unique_constraint(:username)
     else
       changeset

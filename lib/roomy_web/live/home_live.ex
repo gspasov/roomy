@@ -1,8 +1,6 @@
 defmodule RoomyWeb.HomeLive do
   use RoomyWeb, :live_view
 
-  alias RoomyWeb.Components.ContextMenu
-
   @impl true
   def mount(_params, _session, socket) do
     chat = [
@@ -23,8 +21,7 @@ defmodule RoomyWeb.HomeLive do
       assign(socket,
         value: :rand.uniform(10),
         users: users,
-        selected_user: Enum.at(users, 0),
-        current_user: Enum.at(users, 2)
+        selected_user: Enum.at(users, 0)
       )
 
     {:ok, new_socket}
@@ -39,8 +36,7 @@ defmodule RoomyWeb.HomeLive do
       )
 
     ~H"""
-    <ContextMenu.render />
-    <div class="flex h-screen gap-2 p-2 bg-neutral-50">
+    <div class="flex h-[98.5vh] gap-2 p-2 bg-neutral-50">
       <!-- Sidebar -->
       <div class={"min-w-18 border rounded-xl border-gray-200 " <> @shadow}>
         <h1 class="p-4 text-2xl font-bold border-b border-gray-400">roomy.fun</h1>

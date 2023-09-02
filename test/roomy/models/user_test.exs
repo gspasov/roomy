@@ -9,7 +9,7 @@ defmodule Roomy.UserTest do
     username = create_username()
 
     {:ok, user} =
-      Account.register_user(%Request.RegisterUser{
+      Account.register_user(%{
         username: username,
         display_name: "Spider man",
         password: "123456"
@@ -25,7 +25,7 @@ defmodule Roomy.UserTest do
     username = create_username()
 
     {:ok, %User{} = user} =
-      Account.register_user(%Request.RegisterUser{
+      Account.register_user(%{
         username: username,
         display_name: "Spider man",
         password: "123456"
@@ -56,7 +56,7 @@ defmodule Roomy.UserTest do
     too_short_password = "12345"
 
     {:error, %Ecto.Changeset{errors: errors}} =
-      Account.register_user(%Request.RegisterUser{
+      Account.register_user(%{
         username: "example3",
         display_name: "Spider man",
         password: too_short_password
@@ -73,7 +73,7 @@ defmodule Roomy.UserTest do
     username_with_invalid_character = "example%"
 
     {:error, %Ecto.Changeset{errors: errors}} =
-      Account.register_user(%Request.RegisterUser{
+      Account.register_user(%{
         username: username_with_invalid_character,
         display_name: "Spider man",
         password: "123456"
@@ -91,7 +91,7 @@ defmodule Roomy.UserTest do
     too_short_username = "e"
 
     {:error, %Ecto.Changeset{errors: errors_1}} =
-      Account.register_user(%Request.RegisterUser{
+      Account.register_user(%{
         username: too_short_username,
         display_name: "Spider man",
         password: "123456"
@@ -110,7 +110,7 @@ defmodule Roomy.UserTest do
            ]
 
     {:error, %Ecto.Changeset{errors: errors_2}} =
-      Account.register_user(%Request.RegisterUser{
+      Account.register_user(%{
         username: Enum.reduce(1..33, "", fn _, acc -> acc <> "a" end),
         display_name: "Spider man",
         password: "123456"
@@ -133,7 +133,7 @@ defmodule Roomy.UserTest do
     username = create_username()
 
     {:ok, user} =
-      Account.register_user(%Request.RegisterUser{
+      Account.register_user(%{
         username: username,
         display_name: "Spider man",
         password: "123456"
@@ -145,7 +145,7 @@ defmodule Roomy.UserTest do
            }
 
     {:error, %Ecto.Changeset{errors: errors}} =
-      Account.register_user(%Request.RegisterUser{
+      Account.register_user(%{
         username: username,
         display_name: "Bat man",
         password: "123456"
@@ -154,12 +154,12 @@ defmodule Roomy.UserTest do
     assert errors == [
              username:
                {"has already been taken",
-                [constraint: :unique, constraint_name: "users_username_index"]}
+                [validation: :unsafe_unique, fields: [:username]]}
            ]
   end
 
   defp create_username() do
-    "example#{:random.uniform(1_000_000_000)}"
+    "example#{:rand.uniform(1_000_000_000)}"
   end
 
   defp strip_unnecessary_fields(user) do
@@ -174,6 +174,7 @@ defmodule Roomy.UserTest do
     |> Map.delete(:sent_invitations)
     |> Map.delete(:received_invitations)
     |> Map.delete(:friends)
+    |> Map.delete(:tokens)
     |> Map.delete(:inserted_at)
     |> Map.delete(:updated_at)
   end

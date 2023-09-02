@@ -10,7 +10,7 @@ defmodule Roomy.TestUtils do
   alias Roomy.Models.Invitation
 
   def create_user(username, display_name, password) do
-    request = %Request.RegisterUser{
+    request = %{
       username: username,
       display_name: display_name,
       password: password
