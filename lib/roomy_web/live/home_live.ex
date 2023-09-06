@@ -41,7 +41,7 @@ defmodule RoomyWeb.HomeLive do
               phx-click="select_room"
               phx-value-room_id={id}
             >
-              <div class={"flex py-2 px-2 gap-2 items-center rounded-md hover:bg-gray-200 " <> if @selected_room && @selected_room.id == id, do: "bg-gray-200", else: ""}>
+              <div class={"flex py-2 px-2 gap-2 items-center rounded-md hover:bg-gray-200 " <> if @current_room && @current_room.id == id, do: "bg-gray-200", else: ""}>
                 <div class="flex items-end">
                   <div class="w-10 h-10 rounded-full bg-gray-500" />
                   <%!-- <div :if={user.is_online} class="w-2.5 h-2.5 rounded-full bg-green-700" /> --%>
@@ -60,7 +60,7 @@ defmodule RoomyWeb.HomeLive do
       </div>
       <!-- Chat Area -->
       <div class={"flex flex-col w-full border rounded-xl border-gray-200 " <> @shadow}>
-        <%= if @selected_room == nil do %>
+        <%= if @current_room == nil do %>
           <div class="flex items-center justify-center">
             <div class="text-gray-600 text-center">
               <h2 class="text-2xl font-bold mb-4">
@@ -73,10 +73,10 @@ defmodule RoomyWeb.HomeLive do
           </div>
         <% else %>
           <h1 class="text-2xl p-4 font-bold border-b border-gray-400">
-            <%= @selected_room.name %>
+            <%= @current_room.name %>
           </h1>
           <div
-            id={"room-#{@selected_room.id}"}
+            id={"room-#{@current_room.id}"}
             class="overflow-y-scroll flex-grow px-4 pt-2"
             phx-hook="ScrollBack"
             phx-click={JS.dispatch("phx:focus_element", to: "#message_box")}
@@ -133,7 +133,7 @@ defmodule RoomyWeb.HomeLive do
       ) do
     rooms = Account.get_user_chat_rooms(user_id)
 
-    {chat_history, selected_room} =
+    {chat_history, current_room} =
       rooms
       |> Enum.into([])
       |> List.first()
@@ -156,7 +156,7 @@ defmodule RoomyWeb.HomeLive do
       assign(socket,
         rooms: rooms,
         chat_history: chat_history,
-        selected_room: selected_room,
+        current_room: current_room,
         message_box_content: ""
       )
 
@@ -167,16 +167,18 @@ defmodule RoomyWeb.HomeLive do
   def handle_event(
         "select_room",
         %{"room_id" => id},
-        %{assigns: %{rooms: rooms, current_user: %User{id: user_id}}} = socket
+        %{assigns: %{current_user: %User{id: user_id}}} = socket
       ) do
     {room_id, ""} = Integer.parse(id)
-    chat_history = Message.paginate(%Message.Paginate{room_id: room_id})
     Account.mark_room_messages_as_read(user_id, room_id)
+    chat_history = Message.paginate(%Message.Paginate{room_id: room_id})
+    rooms = Account.get_user_chat_rooms(user_id)
 
     new_socket =
       assign(socket,
-        selected_room: Map.get(rooms, room_id),
-        chat_history: chat_history
+        current_room: Map.get(rooms, room_id),
+        chat_history: chat_history,
+        rooms: rooms
       )
 
     {:noreply, new_socket}
@@ -186,8 +188,7 @@ defmodule RoomyWeb.HomeLive do
   def handle_event(
         "message_box:send",
         %{"content" => content},
-        %{assigns: %{current_user: %User{id: user_id}, selected_room: %Room{id: room_id}}} =
-          socket
+        %{assigns: %{current_user: %User{id: user_id}, current_room: %Room{id: room_id}}} = socket
       ) do
     {:ok, %Message{}} =
       Account.send_message(%Request.SendMessage{
@@ -210,26 +211,48 @@ defmodule RoomyWeb.HomeLive do
 
   @impl true
   def handle_info(
-        {Roomy.Bus, %Message{room_id: room_id, sender_id: sender_id} = message},
+        {Roomy.Bus, %Message{id: message_id, room_id: room_id, sender_id: sender_id} = message},
         %{
           assigns: %{
             rooms: rooms,
             chat_history: chat_history,
+            current_room: %Room{id: room_id},
             current_user: %User{id: current_user_id}
           }
         } = socket
       ) do
-    new_rooms = %{rooms | room_id => %{rooms[room_id] | messages: [message]}}
+    if sender_id != current_user_id do
+      :ok =
+        Account.read_message(%Request.ReadMessage{
+          message_id: message_id,
+          reader_id: current_user_id
+        })
+    end
+
+    seen_message = %Message{message | seen: true}
+
+    new_rooms = %{rooms | room_id => %Room{rooms[room_id] | messages: [seen_message]}}
 
     new_chat_history =
       with %Scrivener.Page{entries: entries} <- chat_history do
-        %Scrivener.Page{chat_history | entries: [message | entries]}
+        %Scrivener.Page{chat_history | entries: [seen_message | entries]}
       end
 
     new_socket =
       socket
       |> assign(rooms: new_rooms, chat_history: new_chat_history)
       |> push_event("message:new", %{is_sender: sender_id == current_user_id})
+
+    {:noreply, new_socket}
+  end
+
+  @impl true
+  def handle_info(
+        {Roomy.Bus, %Message{room_id: room_id} = message},
+        %{assigns: %{rooms: rooms}} = socket
+      ) do
+    new_rooms = %{rooms | room_id => %Room{rooms[room_id] | messages: [message]}}
+    new_socket = assign(socket, rooms: new_rooms)
 
     {:noreply, new_socket}
   end
