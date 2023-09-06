@@ -249,17 +249,8 @@ defmodule Roomy.Account do
       end
     end)
     |> tap(fn
-      {:ok, %Message{id: message_id}} ->
-        Bus.Event.send_message(%Bus.Event.Message{
-          content: content,
-          room_id: room_id,
-          sender_id: sender_id,
-          sent_at: sent_at,
-          message_id: message_id
-        })
-
-      _ ->
-        nil
+      {:ok, message} -> Bus.Event.send_message(message)
+      _ -> nil
     end)
   end
 

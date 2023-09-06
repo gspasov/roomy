@@ -55,16 +55,21 @@ defmodule Roomy.MessageTest do
         end
       )
 
-    message_to_receive = %Bus.Event.Message{
-      content: content,
-      message_id: message_id,
-      room_id: room.id,
-      sender_id: user1.id,
-      sent_at: sent_at
-    }
+    message_to_receive =
+      strip_unnecessary_fields(%Message{
+        id: message_id,
+        type: MessageType.normal(),
+        content: content,
+        room_id: room.id,
+        sender_id: user1.id,
+        sent_at: sent_at,
+        deleted: false,
+        edited: false
+      })
 
     Enum.each(subscribers, fn sub ->
-      assert Task.await(sub) == {Bus, message_to_receive}
+      assert {Bus, message} = Task.await(sub)
+      assert strip_unnecessary_fields(message) == message_to_receive
     end)
   end
 
@@ -192,7 +197,7 @@ defmodule Roomy.MessageTest do
            }
   end
 
-  defp strip_unnecessary_fields(message) do
+  defp strip_unnecessary_fields(%Message{} = message) do
     message
     |> Map.from_struct()
     |> Map.delete(:__meta__)

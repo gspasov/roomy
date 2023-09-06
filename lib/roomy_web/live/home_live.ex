@@ -41,7 +41,7 @@ defmodule RoomyWeb.HomeLive do
               phx-click="select_room"
               phx-value-room_id={id}
             >
-              <div class="flex py-2 px-2 gap-2 items-center rounded-md hover:bg-gray-200">
+              <div class={"flex py-2 px-2 gap-2 items-center rounded-md hover:bg-gray-200 " <> if @selected_room && @selected_room.id == id, do: "bg-gray-200", else: ""}>
                 <div class="flex items-end">
                   <div class="w-10 h-10 rounded-full bg-gray-500" />
                   <%!-- <div :if={user.is_online} class="w-2.5 h-2.5 rounded-full bg-green-700" /> --%>
@@ -77,7 +77,7 @@ defmodule RoomyWeb.HomeLive do
           </h1>
           <div
             id={"room-#{@selected_room.id}"}
-            class="overflow-y-scroll flex-grow px-2 pt-2"
+            class="overflow-y-scroll flex-grow px-4 pt-2"
             phx-hook="ScrollBack"
             phx-click={JS.dispatch("phx:focus_element", to: "#message_box")}
           >
@@ -133,6 +133,19 @@ defmodule RoomyWeb.HomeLive do
       ) do
     rooms = Account.get_user_chat_rooms(user_id)
 
+    {chat_history, selected_room} =
+      rooms
+      |> Enum.into([])
+      |> List.first()
+      |> case do
+        {room_id, %Room{} = room} ->
+          chat_history = Message.paginate(%Message.Paginate{room_id: room_id})
+          {chat_history, room}
+
+        _ ->
+          {nil, nil}
+      end
+
     Enum.each(rooms, fn {room_id, _} ->
       room_id
       |> Bus.Topic.room()
@@ -142,8 +155,8 @@ defmodule RoomyWeb.HomeLive do
     new_socket =
       assign(socket,
         rooms: rooms,
-        chat_history: nil,
-        selected_room: nil,
+        chat_history: chat_history,
+        selected_room: selected_room,
         message_box_content: ""
       )
 
@@ -157,13 +170,13 @@ defmodule RoomyWeb.HomeLive do
         %{assigns: %{rooms: rooms, current_user: %User{id: user_id}}} = socket
       ) do
     {room_id, ""} = Integer.parse(id)
-    messages_page_history = Message.paginate(%Message.Paginate{page: 1, room_id: room_id})
+    chat_history = Message.paginate(%Message.Paginate{room_id: room_id})
     Account.mark_room_messages_as_read(user_id, room_id)
 
     new_socket =
       assign(socket,
         selected_room: Map.get(rooms, room_id),
-        chat_history: messages_page_history
+        chat_history: chat_history
       )
 
     {:noreply, new_socket}

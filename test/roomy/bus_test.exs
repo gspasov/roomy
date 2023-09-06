@@ -4,6 +4,7 @@ defmodule Roomy.BusTest do
   alias Roomy.Bus
   alias Roomy.Utils
   alias Roomy.TestUtils
+  alias Roomy.Models.Message
 
   require Bus.Topic
 
@@ -21,8 +22,8 @@ defmodule Roomy.BusTest do
     Utils.execute_after(
       200,
       fn ->
-        Bus.Event.send_message(%Bus.Event.Message{
-          message_id: 1,
+        Bus.Event.send_message(%Message{
+          id: 1,
           sender_id: 2,
           content: "hello world",
           room_id: room_id,
@@ -31,9 +32,9 @@ defmodule Roomy.BusTest do
       end
     )
 
-    message_to_receive = %Bus.Event.Message{
+    message_to_receive = %Message{
+      id: 1,
       content: "hello world",
-      message_id: 1,
       room_id: room_id,
       sender_id: 2,
       sent_at: sent_at
@@ -50,7 +51,7 @@ defmodule Roomy.BusTest do
         Bus.subscribe(Bus.Topic.user("123"))
 
         receive do
-          {Bus, %Bus.Event.Message{content: content}} -> content
+          {Bus, %Message{content: content}} -> content
         end
       end)
 
@@ -60,8 +61,8 @@ defmodule Roomy.BusTest do
     Utils.execute_after(
       200,
       fn ->
-        Bus.Event.send_message(%Bus.Event.Message{
-          message_id: 1,
+        Bus.Event.send_message(%Message{
+          id: 1,
           sender_id: 2,
           content: "hello world",
           room_id: room_id,

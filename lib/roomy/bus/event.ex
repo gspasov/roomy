@@ -7,19 +7,11 @@ defmodule Roomy.Bus.Event do
   alias Roomy.Bus
   alias Roomy.Bus.Topic
   alias Roomy.Bus.Event
-  # alias Roomy.Models.Message
+  alias Roomy.Models.Message
   alias Roomy.Constants.InvitationStatus
 
   require Topic
   require InvitationStatus
-
-  typedstruct module: Message do
-    field(:message_id, pos_integer())
-    field(:sender_id, pos_integer())
-    field(:room_id, pos_integer())
-    field(:content, String.t())
-    field(:sent_at, DateTime.t())
-  end
 
   typedstruct module: UserStatusChange do
     field(:user_id, pos_integer())
@@ -53,12 +45,8 @@ defmodule Roomy.Bus.Event do
     Bus.publish(Topic.user(user_id), e)
   end
 
-  # @spec send_message(message :: Message.t()) :: :ok
-  # def send_message(%Message{room_id: room_id} = e) do
-  #   Bus.publish(Topic.room(room_id), e)
-  # end
-  @spec send_message(event :: Event.Message.t()) :: :ok
-  def send_message(%Event.Message{room_id: room_id} = e) do
+  @spec send_message(message :: Message.t()) :: :ok
+  def send_message(%Message{room_id: room_id} = e) do
     Bus.publish(Topic.room(room_id), e)
   end
 end
