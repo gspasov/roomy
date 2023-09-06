@@ -1,31 +1,14 @@
 defmodule RoomyWeb.HomeLive do
   use RoomyWeb, :live_view
 
-  @impl true
-  def mount(_params, _session, socket) do
-    chat = [
-      %{is_sender: true, content: "Hello there!", timestamp: 1_631_359_800, sender_id: 1},
-      %{is_sender: false, content: "Hi!", timestamp: 1_631_359_860, sender_id: 3},
-      %{is_sender: true, content: "How are you?", timestamp: 1_631_359_920, sender_id: 1},
-      %{is_sender: false, content: "I'm good, thanks!", timestamp: 1_631_359_980, sender_id: 3},
-      %{is_sender: true, content: "That's great to hear!", timestamp: 1_631_360_040, sender_id: 1}
-    ]
+  alias Roomy.Bus
+  alias Roomy.Account
+  alias Roomy.Request
+  alias Roomy.Models.User
+  alias Roomy.Models.Room
+  alias Roomy.Models.Message
 
-    users = [
-      %{id: 1, username: "gspasov", is_online: true, messages: chat},
-      %{id: 2, username: "peshoo", is_online: false},
-      %{id: 3, username: "hehe", is_online: true}
-    ]
-
-    new_socket =
-      assign(socket,
-        value: :rand.uniform(10),
-        users: users,
-        selected_user: Enum.at(users, 0)
-      )
-
-    {:ok, new_socket}
-  end
+  require Bus.Topic
 
   @impl true
   def render(assigns) do
@@ -36,7 +19,7 @@ defmodule RoomyWeb.HomeLive do
       )
 
     ~H"""
-    <div class="flex h-[98.5vh] gap-2 p-2 bg-neutral-50">
+    <div class="flex h-full gap-2 p-2 bg-neutral-50">
       <!-- Sidebar -->
       <div class={"min-w-18 border rounded-xl border-gray-200 " <> @shadow}>
         <h1 class="p-4 text-2xl font-bold border-b border-gray-400">roomy.fun</h1>
@@ -50,18 +33,24 @@ defmodule RoomyWeb.HomeLive do
             />
           </form>
           <ul>
-            <p :if={length(@users) === 0}>No Connected Users :(</p>
-            <li :for={user <- @users} key={user.id} class="cursor-pointer rounded-md mb-1 font-bold">
+            <p :if={map_size(@rooms) === 0}>You have no chats :(</p>
+            <li
+              :for={{id, room} <- @rooms}
+              key={id}
+              class="cursor-pointer rounded-md mb-1"
+              phx-click="select_room"
+              phx-value-room_id={id}
+            >
               <div class="flex py-2 px-2 gap-2 items-center rounded-md hover:bg-gray-200">
                 <div class="flex items-end">
                   <div class="w-10 h-10 rounded-full bg-gray-500" />
-                  <div :if={user.is_online} class="w-2.5 h-2.5 rounded-full bg-green-700" />
-                  <div :if={not user.is_online} class="w-2.5 h-2.5 rounded-full bg-red-700" />
+                  <%!-- <div :if={user.is_online} class="w-2.5 h-2.5 rounded-full bg-green-700" /> --%>
+                  <%!-- <div :if={not user.is_online} class="w-2.5 h-2.5 rounded-full bg-red-700" /> --%>
                 </div>
                 <div>
-                  <span><%= user.username %></span>
-                  <div class="text-sm w-40 text-right font-normal truncate">
-                    The last message goes here...
+                  <span><%= room.name %></span>
+                  <div class={"text-sm font-normal truncate " <> unless seen?(room.messages, @current_user.id), do: "font-medium", else: ""}>
+                    <%= get_last_message(room.messages, @current_user.id) %>
                   </div>
                 </div>
               </div>
@@ -71,7 +60,7 @@ defmodule RoomyWeb.HomeLive do
       </div>
       <!-- Chat Area -->
       <div class={"flex flex-col w-full border rounded-xl border-gray-200 " <> @shadow}>
-        <%= if @selected_user == nil do %>
+        <%= if @selected_room == nil do %>
           <div class="flex items-center justify-center">
             <div class="text-gray-600 text-center">
               <h2 class="text-2xl font-bold mb-4">
@@ -84,30 +73,44 @@ defmodule RoomyWeb.HomeLive do
           </div>
         <% else %>
           <h1 class="text-2xl p-4 font-bold border-b border-gray-400">
-            <%= @selected_user.username %>
+            <%= @selected_room.name %>
           </h1>
-          <div class="overflow-y-scroll flex-grow px-2 pt-2">
+          <div
+            id={"room-#{@selected_room.id}"}
+            class="overflow-y-scroll flex-grow px-2 pt-2"
+            phx-hook="ScrollBack"
+            phx-click={JS.dispatch("phx:focus_element", to: "#message_box")}
+          >
             <div
-              :for={message <- @selected_user.messages}
-              class={"flex mb-2 " <> if message.is_sender, do: "justify-end", else: "justify-start"}
+              :for={message <- Enum.reverse(@chat_history || [])}
+              class={"flex mb-2 " <> if message.sender_id == @current_user.id, do: "justify-end", else: "justify-start"}
             >
-              <div class={"rounded-xl px-4 py-2 " <>
-                    if message.is_sender, do: "bg-blue-500 text-white", else: "bg-gray-300"
+              <div class={"rounded-xl px-4 py-2 max-w-prose " <>
+                    if message.sender_id == @current_user.id, do: "bg-blue-500 text-white", else: "bg-gray-300"
                   }>
                 <p><%= message.content %></p>
                 <div class={"text-xs " <>
-                  if message.is_sender, do: "text-right text-gray-300", else: "text-gray-600"
+                  if message.sender_id == @current_user.id, do: "text-right text-gray-300", else: "text-gray-600"
                 }>
-                  <%= extract_time(message.timestamp) %>
+                  <%= extract_time(message.sent_at) %>
                 </div>
               </div>
             </div>
           </div>
-          <form class="flex m-4 mt-2 p-1 gap-2 border border-gray-400 rounded-lg focus:outline-none focus:ring focus:border-blue-300">
+          <form
+            class="flex m-4 mt-2 p-1 gap-2 border border-gray-400 rounded-lg focus:outline-none focus:ring focus:border-blue-300"
+            phx-submit="message_box:send"
+            phx-change="message_box:change"
+          >
             <input
+              id="message_box"
               type="text"
+              name="content"
               class="w-full bg-neutral-50 border-none focus:outline-none focus:ring-0"
               placeholder="Type your message..."
+              phx-debounce="100"
+              value={@message_box_content}
+              autofocus
             />
             <button
               type="submit"
@@ -122,8 +125,120 @@ defmodule RoomyWeb.HomeLive do
     """
   end
 
-  defp extract_time(timestamp) do
-    %{hour: hour, minute: minute} = DateTime.from_unix!(timestamp)
-    "#{hour}:#{minute}"
+  @impl true
+  def mount(
+        _params,
+        _session,
+        %{assigns: %{current_user: %User{id: user_id}}} = socket
+      ) do
+    rooms = Account.get_user_chat_rooms(user_id)
+
+    Enum.each(rooms, fn {room_id, _} ->
+      room_id
+      |> Bus.Topic.room()
+      |> Bus.subscribe()
+    end)
+
+    new_socket =
+      assign(socket,
+        rooms: rooms,
+        chat_history: nil,
+        selected_room: nil,
+        message_box_content: ""
+      )
+
+    {:ok, new_socket}
+  end
+
+  @impl true
+  def handle_event(
+        "select_room",
+        %{"room_id" => id},
+        %{assigns: %{rooms: rooms, current_user: %User{id: user_id}}} = socket
+      ) do
+    {room_id, ""} = Integer.parse(id)
+    messages_page_history = Message.paginate(%Message.Paginate{page: 1, room_id: room_id})
+    Account.mark_room_messages_as_read(user_id, room_id)
+
+    new_socket =
+      assign(socket,
+        selected_room: Map.get(rooms, room_id),
+        chat_history: messages_page_history
+      )
+
+    {:noreply, new_socket}
+  end
+
+  @impl true
+  def handle_event(
+        "message_box:send",
+        %{"content" => content},
+        %{assigns: %{current_user: %User{id: user_id}, selected_room: %Room{id: room_id}}} =
+          socket
+      ) do
+    {:ok, %Message{}} =
+      Account.send_message(%Request.SendMessage{
+        content: content,
+        sender_id: user_id,
+        room_id: room_id,
+        sent_at: DateTime.utc_now()
+      })
+
+    new_socket = assign(socket, message_box_content: "")
+
+    {:noreply, new_socket}
+  end
+
+  @impl true
+  def handle_event("message_box:change", %{"content" => content}, socket) do
+    new_socket = assign(socket, message_box_content: content)
+    {:noreply, new_socket}
+  end
+
+  @impl true
+  def handle_info(
+        {Roomy.Bus, %Message{room_id: room_id, sender_id: sender_id} = message},
+        %{
+          assigns: %{
+            rooms: rooms,
+            chat_history: chat_history,
+            current_user: %User{id: current_user_id}
+          }
+        } = socket
+      ) do
+    new_rooms = %{rooms | room_id => %{rooms[room_id] | messages: [message]}}
+
+    new_chat_history =
+      with %Scrivener.Page{entries: entries} <- chat_history do
+        %Scrivener.Page{chat_history | entries: [message | entries]}
+      end
+
+    new_socket =
+      socket
+      |> assign(rooms: new_rooms, chat_history: new_chat_history)
+      |> push_event("message:new", %{is_sender: sender_id == current_user_id})
+
+    {:noreply, new_socket}
+  end
+
+  @spec get_last_message([Message.t()], pos_integer()) :: String.t()
+  defp get_last_message(messages, current_user_id)
+
+  defp get_last_message([], _), do: ""
+
+  defp get_last_message([%Message{content: content, sender_id: current_user_id}], current_user_id) do
+    "You: " <> content
+  end
+
+  defp get_last_message([%Message{content: content}], _) do
+    content
+  end
+
+  defp seen?([], _), do: true
+  defp seen?([%Message{sender_id: current_user_id}], current_user_id), do: true
+  defp seen?([%Message{seen: seen}], _), do: seen
+
+  defp extract_time(%{hour: hour, minute: minute}) do
+    "#{hour}:#{minute |> to_string() |> String.pad_leading(2, "0")}"
   end
 end

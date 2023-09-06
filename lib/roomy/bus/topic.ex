@@ -10,8 +10,8 @@ defmodule Roomy.Bus.Topic do
     end
   end
 
-  @spec message(room_id :: String.t()) :: Macro.t()
-  defmacro message(room_id) do
+  @spec room(room_id :: String.t()) :: Macro.t()
+  defmacro room(room_id) do
     quote do
       "roomy/chat/#{unquote(room_id)}"
     end

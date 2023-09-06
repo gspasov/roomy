@@ -68,30 +68,53 @@ require RoomType
 {:ok, _} = Account.answer_invitation(fr_request2.id, true)
 
 {:ok, %Room{id: room_id}} = Room.get_by(name: Account.build_room_name(user1.id, user2.id))
-{:ok, %Room{}} = Room.get_by(name: Account.build_room_name(user1.id, user3.id))
+{:ok, %Room{id: room_id_2}} = Room.get_by(name: Account.build_room_name(user1.id, user3.id))
+
+{:ok, %Message{}} =
+  Account.send_message(%Request.SendMessage{
+    content: "how are you my friend?",
+    sender_id: user1.id,
+    room_id: room_id_2,
+    sent_at: DateTime.utc_now()
+  })
 
 [
-  {"hi", user1.id, true},
-  {"hi to you too", user2.id, true},
-  {"how are you doing?", user1.id, true},
-  {"what are you up to?", user1.id, true},
-  {"I'm pretty okay", user2.id, false},
-  {"I'll be going to the movies tonight", user2.id, false},
-  {"How about you?", user2.id, false},
-  {"What is going in your life?", user2.id, false}
+  {"Nulla pharetra diam", user1.id, true},
+  {"Eget est lorem ipsum", user2.id, true},
+  {"condimentum id venenatis a", user1.id, true},
+  {"ermentum leo vel orci porta", user1.id, true},
+  {"ulputate ut pharetra sit ametkay", user2.id, true},
+  {" risus sed vulputate", user2.id, true},
+  {"Morbi tristique senectus et netus et", user1.id, true},
+  {"Malesuada fames ac turpis egestas integer eget aliquet nibh. Viverra adipiscing at in tellus integer feugiat scelerisque",
+   user1.id, true},
+  {"Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.",
+   user2.id, true},
+  {"Facilisi nullam vehicula ipsum a arcu cursus", user1.id, true},
+  {"nibh ipsum consequat nisl vel pretium", user2.id, true},
+  {"luctus accumsan. Id diam ", user1.id, true},
+  {"etium nibh ipsum consequat nisl", user1.id, true},
+  {"sit amet cursus sit amet dictum", user2.id, true},
+  {"Magna sit amet purus gravida quis", user1.id, true},
+  {"Aliquet nec ullamcorper sit amet", user2.id, false}
 ]
-|> Enum.each(fn {message, user_id, seen?} ->
+|> Enum.each(fn {message, sender_id, seen?} ->
   {:ok, %Message{id: message_id}} =
     Account.send_message(%Request.SendMessage{
       content: message,
-      sender_id: user_id,
+      sender_id: sender_id,
       room_id: room_id,
       sent_at: DateTime.utc_now()
     })
 
-  reader_id = if user_id == user1.id, do: user2.id, else: user1.id
+  reader_id =
+    if sender_id == user1.id do
+      user2.id
+    else
+      user1.id
+    end
 
   if seen? do
-    Account.read_message(%Request.ReadMessage{message_id: message_id, reader_id: reader_id})
+    :ok = Account.read_message(%Request.ReadMessage{message_id: message_id, reader_id: reader_id})
   end
 end)

@@ -15,7 +15,7 @@ defmodule Roomy.Models.UserFriend do
     belongs_to(:user1, User)
     belongs_to(:user2, User)
 
-    timestamps()
+    timestamps(type: :utc_datetime_usec)
   end
 
   typedstruct module: New, enforce: true do

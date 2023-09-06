@@ -39,6 +39,7 @@ defmodule Roomy.Models.Message do
   schema "messages" do
     field(:type, :string)
     field(:content, :string)
+    field(:seen, :boolean, virtual: true)
     field(:sent_at, :utc_datetime_usec)
     field(:edited, :boolean)
     field(:edited_at, :utc_datetime_usec)
@@ -49,7 +50,7 @@ defmodule Roomy.Models.Message do
     belongs_to(:room, Room)
     belongs_to(:sender, User)
 
-    timestamps()
+    timestamps(type: :utc_datetime_usec)
   end
 
   typedstruct module: New do
@@ -70,7 +71,7 @@ defmodule Roomy.Models.Message do
 
   typedstruct module: Paginate, enforce: true do
     field(:page, pos_integer())
-    field(:page_size, pos_integer())
+    field(:page_size, pos_integer(), default: 10)
     field(:room_id, pos_integer())
   end
 
@@ -102,14 +103,16 @@ defmodule Roomy.Models.Message do
     |> validate_required(@required_delete_fields)
   end
 
-  @spec create(__MODULE__.New.t()) :: {:ok, Ecto.Schema.t()} | {:error, Ecto.Changeset.t()}
+  @spec create(__MODULE__.New.t()) ::
+          {:ok, Ecto.Schema.t()} | {:error, Ecto.Changeset.t()}
   def create(%__MODULE__.New{} = attrs) do
     %__MODULE__{}
     |> changeset(attrs)
     |> Repo.insert()
   end
 
-  @spec edit(__MODULE__.Edit.t()) :: {:ok, Ecto.Schema.t()} | {:error, Ecto.Changeset.t()}
+  @spec edit(__MODULE__.Edit.t()) ::
+          {:ok, Ecto.Schema.t()} | {:error, Ecto.Changeset.t()}
   def edit(%__MODULE__.Edit{id: id} = attrs) do
     Repo.tx(fn ->
       with {:ok, %__MODULE__{} = message} <- get(id),
@@ -124,12 +127,14 @@ defmodule Roomy.Models.Message do
     end)
   end
 
-  @spec get(pos_integer(), Keyword.t()) :: {:ok, __MODULE__.t()} | {:error, :not_found}
+  @spec get(pos_integer(), Keyword.t()) ::
+          {:ok, __MODULE__.t()} | {:error, :not_found}
   def get(id, preloads \\ []) when is_number(id) do
     get_by([id: id], preloads)
   end
 
-  @spec get_by(Keyword.t(), Keyword.t()) :: {:ok, __MODULE__.t()} | {:error, :not_found}
+  @spec get_by(Keyword.t(), Keyword.t()) ::
+          {:ok, __MODULE__.t()} | {:error, :not_found}
   def get_by(opts, preloads \\ []) do
     __MODULE__
     |> Repo.get_by(opts)
@@ -145,7 +150,8 @@ defmodule Roomy.Models.Message do
   def delete(id) do
     Repo.tx(fn ->
       with {:ok, %__MODULE__{} = message} <- get(id),
-           {:ok, %__MODULE__{}} = result <- Repo.update(delete_changeset(message)) do
+           {:ok, %__MODULE__{}} = result <-
+             Repo.update(delete_changeset(message)) do
         result
       else
         {:error, reason} -> Repo.rollback(reason)
@@ -176,10 +182,16 @@ defmodule Roomy.Models.Message do
         dynamic([message: message], ^dynamic and message.deleted == ^deleted)
 
       {:reader_id, reader_id}, dynamic ->
-        dynamic([user_message: user_message], ^dynamic and user_message.user_id == ^reader_id)
+        dynamic(
+          [user_message: user_message],
+          ^dynamic and user_message.user_id == ^reader_id
+        )
 
       {:seen, seen}, dynamic ->
-        dynamic([user_message: user_message], ^dynamic and user_message.seen == ^seen)
+        dynamic(
+          [user_message: user_message],
+          ^dynamic and user_message.seen == ^seen
+        )
 
       _, dynamic ->
         dynamic
@@ -187,9 +199,14 @@ defmodule Roomy.Models.Message do
   end
 
   @spec paginate(__MODULE__.Paginate.t()) :: Scrivener.Page.t()
-  def paginate(%__MODULE__.Paginate{page: page, page_size: page_size, room_id: room_id}) do
+  def paginate(%__MODULE__.Paginate{
+        page: page,
+        page_size: page_size,
+        room_id: room_id
+      }) do
     from(m in __MODULE__,
       where: m.room_id == ^room_id,
+      order_by: [desc: m.sent_at],
       select: m
     )
     |> Repo.paginate(page: page, page_size: page_size)

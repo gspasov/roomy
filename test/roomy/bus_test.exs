@@ -12,7 +12,7 @@ defmodule Roomy.BusTest do
 
     subscriber =
       room_id
-      |> Bus.Topic.message()
+      |> Bus.Topic.room()
       |> TestUtils.subscribe_to_topic()
 
     sent_at = DateTime.utc_now()

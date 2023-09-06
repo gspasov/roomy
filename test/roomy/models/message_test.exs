@@ -34,7 +34,7 @@ defmodule Roomy.MessageTest do
     subscribers =
       Enum.map(1..5, fn _ ->
         room.id
-        |> Bus.Topic.message()
+        |> Bus.Topic.room()
         |> TestUtils.subscribe_to_topic()
       end)
 
@@ -201,5 +201,6 @@ defmodule Roomy.MessageTest do
     |> Map.delete(:users_messages)
     |> Map.delete(:room)
     |> Map.delete(:sender)
+    |> Map.delete(:seen)
   end
 end

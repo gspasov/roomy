@@ -28,7 +28,7 @@ defmodule Roomy.Models.UserMessage do
     belongs_to(:user, User)
     belongs_to(:message, Message)
 
-    timestamps()
+    timestamps(type: :utc_datetime_usec)
   end
 
   typedstruct module: Multi do

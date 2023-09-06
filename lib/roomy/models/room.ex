@@ -28,7 +28,7 @@ defmodule Roomy.Models.Room do
     many_to_many(:users, User, join_through: UserRoom)
     has_many(:messages, Message)
 
-    timestamps()
+    timestamps(type: :utc_datetime_usec)
   end
 
   typedstruct module: New, enforce: true do

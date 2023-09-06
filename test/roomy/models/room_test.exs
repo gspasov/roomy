@@ -385,5 +385,6 @@ defmodule Roomy.Models.RoomTest do
     |> Map.delete(:updated_at)
     |> Map.delete(:users_messages)
     |> Map.delete(:sent_at)
+    |> Map.delete(:seen)
   end
 end

@@ -30,7 +30,7 @@ defmodule Roomy.Models.InvitationTest do
     {:ok, %Room{name: room_name, type: room_type}} =
       Room.get_by(name: Account.build_room_name(sender_id, receiver_id))
 
-    assert room_name == "#{user1.id}#{user2.id}"
+    assert room_name == "#{user1.id}##{user2.id}"
     assert room_type == RoomType.dm()
   end
 
@@ -155,7 +155,7 @@ defmodule Roomy.Models.InvitationTest do
     {:ok, %User{rooms: [%Room{name: room_1}]}} = User.get(sender_id, [:rooms])
     {:ok, %User{rooms: [%Room{name: room_2}]}} = User.get(receiver_id, [:rooms])
 
-    assert room_1 == "#{sender_id}#{receiver_id}"
-    assert room_2 == "#{sender_id}#{receiver_id}"
+    assert room_1 == "#{sender_id}##{receiver_id}"
+    assert room_2 == "#{sender_id}##{receiver_id}"
   end
 end

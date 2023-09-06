@@ -14,7 +14,7 @@ defmodule Roomy.Models.InvitationStatus do
   schema "invitation_statuses" do
     field(:name, :string, primary_key: true)
 
-    timestamps()
+    timestamps(type: :utc_datetime_usec)
   end
 
   typedstruct module: New, enforce: true do

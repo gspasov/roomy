@@ -34,7 +34,6 @@ defmodule Roomy.DataCase do
 
   setup tags do
     Roomy.DataCase.setup_sandbox(tags)
-    :ok
 
     user1 =
       %User{} =

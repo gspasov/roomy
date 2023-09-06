@@ -37,7 +37,7 @@ defmodule Roomy.Models.Invitation do
     belongs_to(:receiver, User)
     belongs_to(:room, Room)
 
-    timestamps()
+    timestamps(type: :utc_datetime_usec)
   end
 
   typedstruct module: New do

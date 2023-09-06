@@ -1,6 +1,8 @@
 defmodule Roomy.Account do
   @moduledoc false
 
+  import Ecto.Query
+
   alias Roomy.Models.UserMessage
   alias Roomy.Bus
   alias Roomy.Models.Message
@@ -13,6 +15,7 @@ defmodule Roomy.Account do
   alias Roomy.Models.UserFriend
   alias Roomy.Models.UserRoom
   alias Roomy.Models.UserToken
+  alias Roomy.Models.UserMessage
   alias Roomy.Constants.InvitationStatus
   alias Roomy.Constants.RoomType
   alias Roomy.Constants.MessageType
@@ -21,6 +24,19 @@ defmodule Roomy.Account do
   require RoomType
   require MessageType
   require Logger
+
+  @spec register_user(map()) :: {:ok, User.t()} | {:error, Ecto.Changeset.t()}
+  def register_user(register_params) do
+    User.create(register_params)
+  end
+
+  @spec login_user(Request.LoginUser.t()) :: {:ok, User.t()} | {:error, Ecto.Changeset.t()}
+  def login_user(%Request.LoginUser{username: username, password: password}) do
+    with {:ok, %User{} = user} = result <- User.get_by(username: username),
+         :ok <- Utils.check(User.valid_password?(user, password), :invalid_password) do
+      result
+    end
+  end
 
   def get_user_by_session_token(token) do
     User.get_by_session_token(token)
@@ -95,17 +111,32 @@ defmodule Roomy.Account do
     end
   end
 
-  @spec register_user(map()) :: {:ok, User.t()} | {:error, Ecto.Changeset.t()}
-  def register_user(register_params) do
-    User.create(register_params)
-  end
+  def get_user_chat_rooms(id) do
+    ranking_query =
+      from(message in Message,
+        where:
+          message.deleted == false and
+            message.type == ^MessageType.normal(),
+        select: %{id: message.id, row_number: over(row_number(), :messages_partition)},
+        windows: [messages_partition: [partition_by: :room_id, order_by: [desc: :sent_at]]]
+      )
 
-  @spec login_user(Request.LoginUser.t()) :: {:ok, User.t()} | {:error, Ecto.Changeset.t()}
-  def login_user(%Request.LoginUser{username: username, password: password}) do
-    with {:ok, %User{} = user} = result <- User.get_by(username: username),
-         :ok <- Utils.check(User.valid_password?(user, password), :invalid_password) do
-      result
-    end
+    last_received_message =
+      from(message in Message,
+        join: ranked_message in subquery(ranking_query),
+        on: message.id == ranked_message.id and ranked_message.row_number == 1,
+        join: user_message in assoc(message, :users_messages),
+        select: %{message | seen: user_message.seen}
+      )
+
+    from(room in Room,
+      join: user in UserRoom,
+      on: room.id == user.room_id,
+      where: user.user_id == ^id,
+      preload: [messages: ^last_received_message]
+    )
+    |> Repo.all()
+    |> Enum.into(%{}, fn %Room{id: id} = room -> {id, room} end)
   end
 
   @spec send_friend_request(Roomy.Request.SendFriendRequest.t()) ::
@@ -206,12 +237,19 @@ defmodule Roomy.Account do
 
     Repo.tx(fn ->
       with {:ok, %Room{users: users}} <- Room.get(room_id, :users),
-           {:ok, %Message{id: message_id}} = message <-
+           {:ok, %Message{id: message_id} = message} <-
              Message.create(create_params),
            UserMessage.create(%UserMessage.Multi{
              user_ids: Enum.map(users, fn %User{id: id} -> id end) -- [sender_id],
              message_id: message_id
            }) do
+        {:ok, message}
+      else
+        {:error, reason} -> Repo.rollback(reason)
+      end
+    end)
+    |> tap(fn
+      {:ok, %Message{id: message_id}} ->
         Bus.Event.send_message(%Bus.Event.Message{
           content: content,
           room_id: room_id,
@@ -220,10 +258,8 @@ defmodule Roomy.Account do
           message_id: message_id
         })
 
-        message
-      else
-        {:error, reason} -> Repo.rollback(reason)
-      end
+      _ ->
+        nil
     end)
   end
 
@@ -244,6 +280,16 @@ defmodule Roomy.Account do
            }) do
       :ok
     end
+  end
+
+  @spec mark_room_messages_as_read(pos_integer(), pos_integer()) :: {non_neg_integer(), nil}
+  def mark_room_messages_as_read(reader_id, room_id) do
+    from(um in UserMessage,
+      join: ur in UserRoom,
+      on: ur.user_id == um.user_id and ur.room_id == ^room_id,
+      where: um.user_id == ^reader_id and um.seen == false
+    )
+    |> Repo.update_all(set: [seen: true, updated_at: DateTime.utc_now()])
   end
 
   @spec edit_message(Request.EditMessage.t()) :: :ok | {:error, any()}
@@ -384,7 +430,7 @@ defmodule Roomy.Account do
   @spec build_room_name(pos_integer(), pos_integer()) :: String.t()
   def build_room_name(sender_id, receiver_id) do
     [first, second] = Enum.sort([sender_id, receiver_id])
-    "#{first}#{second}"
+    "#{first}##{second}"
   end
 
   defp message_is_unread_by_everyone(user_messages) do

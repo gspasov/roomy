@@ -12,9 +12,6 @@
     </script>
   </head>
   <body class="bg-stone-50 antialiased">
-    <%= if @current_user do %>
-      <RoomyWeb.Components.ContextMenu.render />
-    <% end %>
     <%= @inner_content %>
   </body>
 </html>
