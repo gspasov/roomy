@@ -19,8 +19,6 @@ defmodule Roomy.Bus.Event do
   end
 
   typedstruct module: UserJoin do
-    field(:user_id, pos_integer())
-    field(:username, String.t())
     field(:display_name, String.t())
   end
 

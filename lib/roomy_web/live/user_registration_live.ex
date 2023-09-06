@@ -1,8 +1,11 @@
 defmodule RoomyWeb.UserRegistrationLive do
   use RoomyWeb, :live_view
 
+  alias Roomy.Bus
   alias Roomy.Account
   alias Roomy.Models.User
+
+  require Bus.Topic
 
   def render(assigns) do
     ~H"""
@@ -56,8 +59,11 @@ defmodule RoomyWeb.UserRegistrationLive do
 
   def handle_event("register", %{"user" => user_params}, socket) do
     case Account.register_user(user_params) do
-      {:ok, %User{} = user} ->
+      {:ok, %User{display_name: name} = user} ->
         changeset = Account.change_user_registration(user)
+
+        Bus.Event.new_user_join(%Bus.Event.UserJoin{display_name: name})
+
         new_socket = socket |> assign(trigger_submit: true) |> assign_form(changeset)
 
         {:noreply, new_socket}

@@ -152,6 +152,8 @@ defmodule RoomyWeb.HomeLive do
       |> Bus.subscribe()
     end)
 
+    Bus.subscribe(Bus.Topic.system())
+
     new_socket =
       assign(socket,
         rooms: rooms,
@@ -253,6 +255,13 @@ defmodule RoomyWeb.HomeLive do
       ) do
     new_rooms = %{rooms | room_id => %Room{rooms[room_id] | messages: [message]}}
     new_socket = assign(socket, rooms: new_rooms)
+
+    {:noreply, new_socket}
+  end
+
+  @impl true
+  def handle_info({Roomy.Bus, %Bus.Event.UserJoin{display_name: name}}, socket) do
+    new_socket = put_flash(socket, :info, "New user by the name of '#{name}' has joined Roomy!")
 
     {:noreply, new_socket}
   end
