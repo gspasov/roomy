@@ -10,7 +10,14 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        brand: "#FD4F00",
+        navigation: "#349DA4",
+        default_background: "#3465A4",
+        nav_text_red: "#A43B34",
+        nav_text_light: "#E8ECEA",
+        nav_text_dark: "#2E3436",
+        highlight: "#FCE94F",
+        bubble_me: "#A47334",
+        bubble_you: "#E8ECEA",
       },
       minWidth: {
         18: "18rem",

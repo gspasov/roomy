@@ -5,9 +5,11 @@ defmodule RoomyWeb.Components.ContextMenu do
 
   def render(assigns) do
     ~H"""
-    <div class="flex w-full px-2 select-none bg-stone-200">
-      <.menu id={2} title="Menu">
-        <:item title="Settings" href={~p"/users/settings"} method="get" />
+    <div class="flex w-full px-2 select-none bg-navigation">
+      <.menu id={1} title="Menu">
+        <:item title="Chat" href={~p"/"} method="get" />
+        <:item title="Settings" href={~p"/users/settings"} />
+        <:item border={true} />
         <:item title="Logout" href={~p"/users/log_out"} method="delete" />
       </.menu>
     </div>
@@ -17,27 +19,43 @@ defmodule RoomyWeb.Components.ContextMenu do
   attr(:id, :integer, required: true)
   attr(:title, :string, required: true)
 
-  slot :item, required: true do
-    attr(:title, :string, required: true)
-    attr(:href, :string, required: true)
+  slot :item do
+    attr(:title, :string)
+    attr(:href, :string)
     attr(:method, :string)
+    attr(:border, :boolean)
   end
 
   def menu(assigns) do
     ~H"""
     <nav
-      class="px-1 relative cursor-pointer text-sm font-semibold text-zinc-900 hover:text-zinc-700 hover:bg-stone-400"
+      class="px-3 relative cursor-pointer text-sm font-bold tracking-wider text-nav_text_light hover:bg-nav_text_dark"
       phx-click={Core.toggle("#context-menu-" <> to_string(@id))}
       phx-click-away={Core.hide_fast("#context-menu-" <> to_string(@id))}
     >
-      <%= @title %>
-      <ul id={"context-menu-" <> to_string(@id)} class="absolute left-0 w-32 flex hidden bg-gray-300">
-        <li :for={item <- @item}>
-          <.link href={item.href} method={item.method} class="w-full block hover:bg-gray-400 px-2">
-            <%= item.title %>
-          </.link>
-        </li>
-      </ul>
+      <%!-- <%= @title %> --%>
+      <span class="text-highlight"><%= String.first(@title) %></span><%= String.slice(@title, 1, 99) %>
+      <div
+        id={"context-menu-" <> to_string(@id)}
+        class="absolute left-0 p-1 w-48 flex hidden bg-navigation"
+      >
+        <ul class="border-2 py-2 border-nav_text_light">
+          <li :for={item <- @item}>
+            <.link
+              :if={!item[:border]}
+              href={item.href}
+              method={item[:method] || "get"}
+              class="mx-1 block hover:bg-nav_text_dark px-2"
+            >
+              <%= item.title %>
+            </.link>
+
+            <div :if={item[:border]} class="py-2">
+              <span class="block border-t-2 border-nav_text-light" />
+            </div>
+          </li>
+        </ul>
+      </div>
     </nav>
     """
   end

@@ -153,8 +153,7 @@ defmodule Roomy.UserTest do
 
     assert errors == [
              username:
-               {"has already been taken",
-                [validation: :unsafe_unique, fields: [:username]]}
+               {"has already been taken", [validation: :unsafe_unique, fields: [:username]]}
            ]
   end
 

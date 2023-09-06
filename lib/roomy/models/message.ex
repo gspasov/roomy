@@ -71,7 +71,7 @@ defmodule Roomy.Models.Message do
 
   typedstruct module: Paginate, enforce: true do
     field(:page, pos_integer(), default: 1)
-    field(:page_size, pos_integer(), default: 10)
+    field(:page_size, pos_integer(), default: 20)
     field(:room_id, pos_integer())
   end
 

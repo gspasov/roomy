@@ -3,3 +3,25 @@
 @import "tailwindcss/utilities";
 
 /* This file is for your main application CSS */
+
+input:-webkit-autofill,
+input:-webkit-autofill:focus {
+    transition: background-color 600000s 0s, color 600000s 0s;
+}
+input[data-autocompleted] {
+    background-color: transparent !important;
+}
+
+::-webkit-scrollbar {
+  width: 12px;               /* width of the entire scrollbar */
+}
+
+::-webkit-scrollbar-track {
+  background: #3465A4;        /* color of the tracking area */
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: #E8ECEA;
+  border-radius: 1px;
+  border: 3px solid #3465A4;
+}

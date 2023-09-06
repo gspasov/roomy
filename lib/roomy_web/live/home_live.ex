@@ -12,54 +12,36 @@ defmodule RoomyWeb.HomeLive do
 
   @impl true
   def render(assigns) do
-    assigns =
-      assign(assigns,
-        shadow:
-          "shadow-[rgba(50,_50,_105,_0.15)_0px_2px_5px_0px,_rgba(0,_0,_0,_0.05)_0px_1px_1px_0px]"
-      )
-
     ~H"""
-    <div class="flex h-full gap-2 p-2 bg-neutral-50">
+    <div class="flex h-full gap-2 px-2 pb-2">
       <!-- Sidebar -->
-      <div class={"min-w-18 border rounded-xl border-gray-200 " <> @shadow}>
-        <h1 class="p-4 text-2xl font-bold border-b border-gray-400">roomy.fun</h1>
-
-        <div class="flex flex-col gap-2 p-2">
-          <form class="flex p-1 mt-2 border border-gray-400 rounded-md focus:outline-none focus:ring focus:border-blue-300">
-            <input
-              type="text"
-              class="h-8 w-full bg-neutral-50 border-none focus:outline-none focus:ring-0"
-              placeholder="Find friend..."
-            />
-          </form>
-          <ul>
-            <p :if={map_size(@rooms) === 0}>You have no chats :(</p>
-            <li
-              :for={{id, room} <- @rooms}
-              key={id}
-              class="cursor-pointer rounded-md mb-1"
-              phx-click="select_room"
-              phx-value-room_id={id}
-            >
-              <div class={"flex py-2 px-2 gap-2 items-center rounded-md hover:bg-gray-200 " <> if @current_room && @current_room.id == id, do: "bg-gray-200", else: ""}>
-                <div class="flex items-end">
-                  <div class="w-10 h-10 rounded-full bg-gray-500" />
-                  <%!-- <div :if={user.is_online} class="w-2.5 h-2.5 rounded-full bg-green-700" /> --%>
-                  <%!-- <div :if={not user.is_online} class="w-2.5 h-2.5 rounded-full bg-red-700" /> --%>
-                </div>
-                <div>
-                  <span><%= room.name %></span>
-                  <div class={"text-sm font-normal truncate " <> unless seen?(room.messages, @current_user.id), do: "font-medium", else: ""}>
-                    <%= get_last_message(room.messages, @current_user.id) %>
-                  </div>
-                </div>
+      <fieldset class="border border-gray-200">
+        <legend class="px-2 text-sm text-center text-nav_text_light font-bold">Rooms</legend>
+        <ul class="px-2">
+          <p :if={map_size(@rooms) === 0}>You have no chats :(</p>
+          <li
+            :for={{id, room} <- @rooms}
+            key={id}
+            class="cursor-pointer mb-1"
+            phx-click="select_room"
+            phx-value-room_id={id}
+          >
+            <div class={"flex flex-col border-2 border-default_background rounded py-2 px-2 items-start text-nav_text_light " <> if @current_room && @current_room.id == id, do: "!border-navigation bg-navigation", else: "hover:border-dotted hover:border-navigation"}>
+              <span class={"font-bold " <> if @current_room && @current_room.id == id, do: "text-highlight", else: ""}>
+                <%= room.name %>
+              </span>
+              <div class={"text-sm max-w-full font-normal truncate w-64 " <> unless seen?(room.messages, @current_user.id), do: "font-medium text-highlight", else: ""}>
+                <%= get_last_message(room.messages, @current_user.id) %>
               </div>
-            </li>
-          </ul>
-        </div>
-      </div>
+            </div>
+          </li>
+        </ul>
+      </fieldset>
       <!-- Chat Area -->
-      <div class={"flex flex-col w-full border rounded-xl border-gray-200 " <> @shadow}>
+      <fieldset class="flex flex-col w-full border border-gray-200">
+        <legend class="px-2 text-sm text-center text-nav_text_light font-bold">
+          <%= @current_room.name %>
+        </legend>
         <%= if @current_room == nil do %>
           <div class="flex items-center justify-center">
             <div class="text-gray-600 text-center">
@@ -72,12 +54,9 @@ defmodule RoomyWeb.HomeLive do
             </div>
           </div>
         <% else %>
-          <h1 class="text-2xl p-4 font-bold border-b border-gray-400">
-            <%= @current_room.name %>
-          </h1>
           <div
             id={"room-#{@current_room.id}"}
-            class="overflow-y-scroll flex-grow px-4 pt-2"
+            class="overflow-y-scroll flex-grow px-2 pt-2"
             phx-hook="ScrollBack"
             phx-click={JS.dispatch("phx:focus_element", to: "#message_box")}
           >
@@ -85,42 +64,35 @@ defmodule RoomyWeb.HomeLive do
               :for={message <- Enum.reverse(@chat_history || [])}
               class={"flex mb-2 " <> if message.sender_id == @current_user.id, do: "justify-end", else: "justify-start"}
             >
-              <div class={"rounded-xl px-4 py-2 max-w-prose " <>
-                    if message.sender_id == @current_user.id, do: "bg-blue-500 text-white", else: "bg-gray-300"
-                  }>
-                <p><%= message.content %></p>
-                <div class={"text-xs " <>
-                  if message.sender_id == @current_user.id, do: "text-right text-gray-300", else: "text-gray-600"
-                }>
+              <div class={"rounded-md px-2 py-1 " <> if message.sender_id == @current_user.id, do: "bg-bubble_me text-white", else: "bg-bubble_you text-nav_text_dark"}>
+                <p class="max-w-prose break-words"><%= message.content %></p>
+                <div class={"text-xs " <> if message.sender_id == @current_user.id, do: "text-right text-gray-300", else: "text-gray-600"}>
                   <%= extract_time(message.sent_at) %>
                 </div>
               </div>
             </div>
           </div>
-          <form
-            class="flex m-4 mt-2 p-1 gap-2 border border-gray-400 rounded-lg focus:outline-none focus:ring focus:border-blue-300"
-            phx-submit="message_box:send"
-            phx-change="message_box:change"
-          >
-            <input
-              id="message_box"
-              type="text"
-              name="content"
-              class="w-full bg-neutral-50 border-none focus:outline-none focus:ring-0"
-              placeholder="Type your message..."
-              phx-debounce="100"
-              value={@message_box_content}
-              autofocus
-            />
-            <button
-              type="submit"
-              class="px-7 text-white font-bold text-sm rounded-lg bg-blue-500 hover:bg-blue-600 focus:outline-none focus:ring focus:border-blue-300"
+          <fieldset class="m-2 mt-2 p-1 border border-gray-200">
+            <legend class="px-2 text-sm text-center text-nav_text_light font-bold">Prompt</legend>
+            <form
+              class="focus:outline-none focus:ring focus:border-blue-300"
+              phx-submit="message_box:send"
+              phx-change="message_box:change"
             >
-              Send
-            </button>
-          </form>
+              <input
+                id="message_box"
+                type="text"
+                name="content"
+                class="w-full pt-0 bg-neutral-50 border-none text-white bg-default_background placeholder:text-slate-300 focus:outline-none focus:ring-0"
+                placeholder="Type your message..."
+                phx-debounce="100"
+                value={@message_box_content}
+                autofocus
+              />
+            </form>
+          </fieldset>
         <% end %>
-      </div>
+      </fieldset>
     </div>
     """
   end
@@ -190,7 +162,12 @@ defmodule RoomyWeb.HomeLive do
   def handle_event(
         "message_box:send",
         %{"content" => content},
-        %{assigns: %{current_user: %User{id: user_id}, current_room: %Room{id: room_id}}} = socket
+        %{
+          assigns: %{
+            current_user: %User{id: user_id},
+            current_room: %Room{id: room_id}
+          }
+        } = socket
       ) do
     {:ok, %Message{}} =
       Account.send_message(%Request.SendMessage{
@@ -233,7 +210,10 @@ defmodule RoomyWeb.HomeLive do
 
     seen_message = %Message{message | seen: true}
 
-    new_rooms = %{rooms | room_id => %Room{rooms[room_id] | messages: [seen_message]}}
+    new_rooms = %{
+      rooms
+      | room_id => %Room{rooms[room_id] | messages: [seen_message]}
+    }
 
     new_chat_history =
       with %Scrivener.Page{entries: entries} <- chat_history do
@@ -253,7 +233,11 @@ defmodule RoomyWeb.HomeLive do
         {Roomy.Bus, %Message{room_id: room_id} = message},
         %{assigns: %{rooms: rooms}} = socket
       ) do
-    new_rooms = %{rooms | room_id => %Room{rooms[room_id] | messages: [message]}}
+    new_rooms = %{
+      rooms
+      | room_id => %Room{rooms[room_id] | messages: [message]}
+    }
+
     new_socket = assign(socket, rooms: new_rooms)
 
     {:noreply, new_socket}
@@ -261,7 +245,12 @@ defmodule RoomyWeb.HomeLive do
 
   @impl true
   def handle_info({Roomy.Bus, %Bus.Event.UserJoin{display_name: name}}, socket) do
-    new_socket = put_flash(socket, :info, "New user by the name of '#{name}' has joined Roomy!")
+    new_socket =
+      put_flash(
+        socket,
+        :info,
+        "New user by the name of '#{name}' has joined Roomy!"
+      )
 
     {:noreply, new_socket}
   end
@@ -271,7 +260,10 @@ defmodule RoomyWeb.HomeLive do
 
   defp get_last_message([], _), do: ""
 
-  defp get_last_message([%Message{content: content, sender_id: current_user_id}], current_user_id) do
+  defp get_last_message(
+         [%Message{content: content, sender_id: current_user_id}],
+         current_user_id
+       ) do
     "You: " <> content
   end
 
