@@ -7,6 +7,7 @@ defmodule RoomyWeb.HomeLive do
   alias Roomy.Models.User
   alias Roomy.Models.Room
   alias Roomy.Models.Message
+  alias WarmFuzzyThing.Maybe
 
   require Bus.Topic
 
@@ -15,10 +16,10 @@ defmodule RoomyWeb.HomeLive do
     ~H"""
     <div class="flex h-full gap-2 px-2 pb-2">
       <!-- Sidebar -->
-      <fieldset class="border border-gray-200">
+      <fieldset class="border border-gray-200 w-[25%]">
         <legend class="px-2 text-sm text-center text-nav_text_light font-bold">Rooms</legend>
         <ul class="px-2">
-          <p :if={map_size(@rooms) === 0}>You have no chats :(</p>
+          <p :if={map_size(@rooms) === 0} class="text-highlight">You have no chats :(</p>
           <li
             :for={{id, room} <- @rooms}
             key={id}
@@ -38,13 +39,13 @@ defmodule RoomyWeb.HomeLive do
         </ul>
       </fieldset>
       <!-- Chat Area -->
-      <fieldset class="flex flex-col w-full border border-gray-200">
+      <fieldset class="flex flex-col w-full border border-gray-200 w-[75%]">
         <legend class="px-2 text-sm text-center text-nav_text_light font-bold">
-          <%= @current_room.name %>
+          <%= Maybe.pure(@current_room) |> Maybe.fold(":(", fn r -> r.name end) %>
         </legend>
         <%= if @current_room == nil do %>
-          <div class="flex items-center justify-center">
-            <div class="text-gray-600 text-center">
+          <div class="flex items-center justify-center h-full">
+            <div class="text-highlight text-center">
               <h2 class="text-2xl font-bold mb-4">
                 No Conversation selected
               </h2>

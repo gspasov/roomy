@@ -53,7 +53,8 @@ defmodule Roomy.MixProject do
       {:bcrypt_elixir, "~> 3.0"},
       {:typed_struct, "~> 0.3.0"},
       {:scrivener_ecto, "~> 2.0"},
-      {:dialyxir, "~> 1.3", only: [:dev], runtime: false}
+      {:dialyxir, "~> 1.3", only: [:dev], runtime: false},
+      {:warm_fuzzy_thing, "~> 0.1.0"}
     ]
   end
 

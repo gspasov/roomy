@@ -3,31 +3,36 @@ defmodule RoomyWeb.UserLoginLive do
 
   def render(assigns) do
     ~H"""
-    <div class="mx-auto max-w-sm">
-      <.header class="text-center">
-        Sign in to account
-        <:subtitle>
-          Don't have an account?
-          <.link navigate={~p"/users/register"} class="font-semibold text-brand hover:underline">
-            Sign up
+    <div class="flex flex-col gap-2 mt-20 relative items-center">
+      <h1 class="text-white font-bold text-8xl">Let's chat on <br> Roomy</h1>
+      <fieldset class="px-12 py-6 mt-20 border rounded border-gray-200 min-w-[25%]">
+        <legend class="px-2 text-sm text-center text-nav_text_light font-bold">Log in</legend>
+        <.simple_form for={@form} id="login_form" action={~p"/users/log_in"} phx-update="ignore" class="flex flex-col gap-2">
+          <.input field={@form[:username]} type="text" label="Username" required autofocus />
+          <.input field={@form[:password]} type="password" label="Password" required />
+          <:actions>
+            <div class="flex justify-around pt-6 text-white">
+              <div>
+                <span class="text-xl">[</span>
+                <button class="text-center px-1 hover:bg-slate-300/25" type="submit">
+                  &lt; Sign in &gt;
+                </button>
+                <span class="text-xl">]</span>
+              </div>
+            </div>
+          </:actions>
+        </.simple_form>
+      </fieldset>
+      <div class="flex gap-5 items-center text-white">
+        <span class="italic">Don't have an account yet?</span>
+        <div>
+          <span>[</span>
+          <.link class="text-center px-1 hover:bg-slate-300/25" navigate={~p"/users/register"}>
+            &lt; Register &gt;
           </.link>
-          for an account now.
-        </:subtitle>
-      </.header>
-
-      <.simple_form for={@form} id="login_form" action={~p"/users/log_in"} phx-update="ignore">
-        <.input field={@form[:username]} type="text" label="Username" required />
-        <.input field={@form[:password]} type="password" label="Password" required />
-
-        <:actions>
-          <.input field={@form[:remember_me]} type="checkbox" label="Keep me logged in" />
-        </:actions>
-        <:actions>
-          <.button phx-disable-with="Signing in..." class="w-full">
-            Sign in <span aria-hidden="true">→</span>
-          </.button>
-        </:actions>
-      </.simple_form>
+          <span>]</span>
+        </div>
+      </div>
     </div>
     """
   end
