@@ -126,6 +126,7 @@ defmodule Roomy.Account do
         join: ranked_message in subquery(ranking_query),
         on: message.id == ranked_message.id and ranked_message.row_number == 1,
         join: user_message in assoc(message, :users_messages),
+        distinct: message.id,
         select: %{message | seen: user_message.seen}
       )
 
@@ -235,14 +236,19 @@ defmodule Roomy.Account do
       sent_at: sent_at
     }
 
+    receivers = fn users ->
+      Enum.map(users, fn %User{id: id} -> id end) -- [sender_id]
+    end
+
     Repo.tx(fn ->
       with {:ok, %Room{users: users}} <- Room.get(room_id, :users),
            {:ok, %Message{id: message_id} = message} <-
              Message.create(create_params),
-           UserMessage.create(%UserMessage.Multi{
-             user_ids: Enum.map(users, fn %User{id: id} -> id end) -- [sender_id],
-             message_id: message_id
-           }) do
+           :ok <-
+             UserMessage.create(%UserMessage.Multi{
+               user_ids: receivers.(users),
+               message_id: message_id
+             }) do
         {:ok, message}
       else
         {:error, reason} -> Repo.rollback(reason)

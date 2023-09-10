@@ -55,17 +55,14 @@ defmodule Roomy.Models.UserMessage do
   end
 
   def create(%__MODULE__.Multi{user_ids: ids, message_id: message_id, seen: seen}) do
-    Repo.tx(fn ->
-      Enum.each(ids, fn user_id ->
-        %__MODULE__{}
-        |> changeset(%__MODULE__.New{user_id: user_id, message_id: message_id, seen: seen})
-        |> Repo.insert()
-        |> case do
-          {:ok, %__MODULE__{}} -> :ok
-          {:error, reason} -> Repo.rollback(reason)
-        end
-      end)
-    end)
+    Repo.insert_all(
+      __MODULE__,
+      Enum.map(ids, fn id -> %{user_id: id, message_id: message_id, seen: seen} end)
+    )
+    |> case do
+      {inserts, nil} when inserts == length(ids) -> :ok
+      _ -> {:error, :failed_to_insert_users_messages}
+    end
   end
 
   def read(%__MODULE__.Read{message_id: message_id, user_id: user_id}) do

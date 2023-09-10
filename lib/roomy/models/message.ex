@@ -207,7 +207,8 @@ defmodule Roomy.Models.Message do
     from(m in __MODULE__,
       where: m.room_id == ^room_id,
       order_by: [desc: m.sent_at],
-      select: m
+      select: m,
+      preload: [:sender]
     )
     |> Repo.paginate(page: page, page_size: page_size)
   end

@@ -4,12 +4,14 @@ defmodule RoomyWeb.HomeLive do
   alias Roomy.Bus
   alias Roomy.Account
   alias Roomy.Request
+  alias Roomy.Constants.RoomType
   alias Roomy.Models.User
   alias Roomy.Models.Room
   alias Roomy.Models.Message
   alias WarmFuzzyThing.Maybe
 
   require Bus.Topic
+  require RoomType
 
   @impl true
   def render(assigns) do
@@ -27,7 +29,7 @@ defmodule RoomyWeb.HomeLive do
             phx-click="select_room"
             phx-value-room_id={id}
           >
-            <div class={"flex flex-col border-2 border-default_background rounded py-2 px-2 items-start text-nav_text_light " <> if @current_room && @current_room.id == id, do: "!border-navigation bg-navigation", else: "hover:border-dotted hover:border-navigation"}>
+            <div class={"flex flex-col border-2 border-default_background rounded px-2 items-start text-nav_text_light " <> if @current_room && @current_room.id == id, do: "!border-navigation bg-navigation", else: "hover:border-dotted hover:border-navigation"}>
               <span class={"font-bold " <> if @current_room && @current_room.id == id, do: "text-highlight", else: ""}>
                 <%= room.name %>
               </span>
@@ -63,12 +65,20 @@ defmodule RoomyWeb.HomeLive do
           >
             <div
               :for={message <- Enum.reverse(@chat_history || [])}
-              class={"flex mb-2 " <> if message.sender_id == @current_user.id, do: "justify-end", else: "justify-start"}
+              class={[
+                "flex mb-3",
+                (if message.sender_id == @current_user.id, do: "justify-end", else: "justify-start")
+              ]}
             >
-              <div class={"rounded-md px-2 py-1 " <> if message.sender_id == @current_user.id, do: "bg-bubble_me text-white", else: "bg-bubble_you text-nav_text_dark"}>
-                <p class="max-w-prose break-words"><%= message.content %></p>
-                <div class={"text-xs " <> if message.sender_id == @current_user.id, do: "text-right text-gray-300", else: "text-gray-600"}>
-                  <%= extract_time(message.sent_at) %>
+              <div class="flex flex-col gap-1">
+                <span :if={@current_room.type == RoomType.group() and message.sender.id != @current_user.id} class="text-xs pl-1 text-white">
+                  <%= message.sender.display_name %>
+                </span>
+                <div class={"rounded-md px-2 py-1 " <> if message.sender_id == @current_user.id, do: "bg-bubble_me text-white", else: "bg-bubble_you text-nav_text_dark"}>
+                  <p class="max-w-prose break-words"><%= message.content %></p>
+                  <div class={"text-xs " <> if message.sender_id == @current_user.id, do: "text-right text-gray-300", else: "text-gray-600"}>
+                    <%= extract_time(message.sent_at) %>
+                  </div>
                 </div>
               </div>
             </div>

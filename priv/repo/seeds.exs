@@ -67,6 +67,14 @@ require RoomType
 {:ok, _} = Account.answer_invitation(fr_request1.id, true)
 {:ok, _} = Account.answer_invitation(fr_request2.id, true)
 
+{:ok, %Room{id: group_room_id}} =
+  Account.create_group_chat(%Request.CreateGroupChat{
+    participants_usernames: ["pete", "steve"],
+    invitation_message: "Organization of party",
+    name: "Party 2023",
+    sender_id: user1.id
+  })
+
 {:ok, %Room{id: room_id}} = Room.get_by(name: Account.build_room_name(user1.id, user2.id))
 {:ok, %Room{id: room_id_2}} = Room.get_by(name: Account.build_room_name(user1.id, user3.id))
 
@@ -116,5 +124,43 @@ require RoomType
 
   if seen? do
     :ok = Account.read_message(%Request.ReadMessage{message_id: message_id, reader_id: reader_id})
+  end
+end)
+
+[
+  {"Nulla pharetra diam", user1.id, true},
+  {"Eget est lorem ipsum", user2.id, true},
+  {"condimentum id venenatis a", user3.id, true},
+  {"ermentum leo vel orci porta", user3.id, true},
+  {"ulputate ut pharetra sit ametkay", user2.id, true},
+  {" risus sed vulputate", user2.id, true},
+  {"Morbi tristique senectus et netus et", user1.id, true},
+  {"Malesuada fames ac turpis egestas integer eget aliquet nibh. Viverra adipiscing at in tellus integer feugiat scelerisque",
+   user1.id, true},
+  {"Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.",
+   user2.id, true},
+  {"Facilisi nullam vehicula ipsum a arcu cursus", user1.id, true},
+  {"nibh ipsum consequat nisl vel pretium", user2.id, true},
+  {"luctus accumsan. Id diam ", user3.id, true},
+  {"etium nibh ipsum consequat nisl", user3.id, true},
+  {"sit amet cursus sit amet dictum", user2.id, true},
+  {"Magna sit amet purus gravida quis", user1.id, true},
+  {"Aliquet nec ullamcorper sit amet", user3.id, false}
+]
+|> Enum.each(fn {message, sender_id, seen?} ->
+  {:ok, %Message{id: message_id}} =
+    Account.send_message(%Request.SendMessage{
+      content: message,
+      sender_id: sender_id,
+      room_id: group_room_id,
+      sent_at: DateTime.utc_now()
+    })
+
+  if seen? do
+    to_see = [user1.id, user2.id, user3.id] -- [sender_id]
+
+    Enum.each(to_see, fn user_id ->
+      :ok = Account.read_message(%Request.ReadMessage{message_id: message_id, reader_id: user_id})
+    end)
   end
 end)
