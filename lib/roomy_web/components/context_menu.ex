@@ -33,7 +33,6 @@ defmodule RoomyWeb.Components.ContextMenu do
       phx-click={Core.toggle("#context-menu-" <> to_string(@id))}
       phx-click-away={Core.hide_fast("#context-menu-" <> to_string(@id))}
     >
-      <%!-- <%= @title %> --%>
       <span class="text-highlight"><%= String.first(@title) %></span><%= String.slice(@title, 1, 99) %>
       <div
         id={"context-menu-" <> to_string(@id)}

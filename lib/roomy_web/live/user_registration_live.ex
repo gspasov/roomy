@@ -10,7 +10,7 @@ defmodule RoomyWeb.UserRegistrationLive do
   def render(assigns) do
     ~H"""
     <div class="flex flex-col gap-2 mt-20 relative items-center">
-      <h1 class="text-white font-bold text-8xl">Welcome to <br> Roomy</h1>
+      <h1 class="text-white font-bold text-8xl">Welcome to <br /> Roomy</h1>
       <fieldset class="px-12 py-6 mt-20 border rounded border-gray-200 min-w-[25%]">
         <legend class="px-2 text-sm text-center text-nav_text_light font-bold">Sign up</legend>
         <.simple_form
@@ -21,7 +21,8 @@ defmodule RoomyWeb.UserRegistrationLive do
           phx-trigger-action={@trigger_submit}
           action={~p"/users/log_in?_action=registered"}
           method="post"
-          class="flex flex-col gap-2">
+          class="flex flex-col gap-2"
+        >
           <.error :if={@check_errors}>
             Oops, something went wrong! Please check the errors below.
           </.error>
@@ -34,7 +35,11 @@ defmodule RoomyWeb.UserRegistrationLive do
             <div class="flex justify-center pt-6">
               <div class="text-white">
                 <span class="text-xl">[</span>
-                <button class="text-center px-1 hover:bg-slate-300/25" type="submit" phx-disable-with="Creating account...">
+                <button
+                  class="text-center px-1 hover:bg-slate-300/25"
+                  type="submit"
+                  phx-disable-with="Creating account..."
+                >
                   &lt; Create an account &gt;
                 </button>
                 <span class="text-xl">]</span>
