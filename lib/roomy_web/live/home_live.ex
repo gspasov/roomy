@@ -29,9 +29,9 @@ defmodule RoomyWeb.HomeLive do
             phx-click="select_room"
             phx-value-room_id={id}
           >
-            <div class={"flex flex-col border-2 border-default_background rounded px-2 items-start text-nav_text_light " <> if @current_room && @current_room.id == id, do: "!border-navigation bg-navigation", else: "hover:border-dotted hover:border-navigation"}>
+            <div class={"flex flex-col border-2 border-default_background rounded p-2 items-start text-nav_text_light " <> if @current_room && @current_room.id == id, do: "!border-navigation bg-navigation", else: "hover:border-dotted hover:border-navigation"}>
               <span class={"font-bold " <> if @current_room && @current_room.id == id, do: "text-highlight", else: ""}>
-                <%= room.name %>
+                <%= get_room_name(room, @current_user.id) %>
               </span>
               <div class={"text-sm max-w-full font-normal truncate w-64 " <> unless seen?(room.messages, @current_user.id), do: "font-medium text-highlight", else: ""}>
                 <%= get_last_message(room.messages, @current_user.id) %>
@@ -43,7 +43,7 @@ defmodule RoomyWeb.HomeLive do
       <!-- Chat Area -->
       <fieldset class="flex flex-col w-full border border-gray-200 w-[75%]">
         <legend class="px-2 text-sm text-center text-nav_text_light font-bold">
-          <%= Maybe.pure(@current_room) |> Maybe.fold(":(", fn r -> r.name end) %>
+          <%= get_room_name(@current_room, @current_user.id) %>
         </legend>
         <%= if @current_room == nil do %>
           <div class="flex items-center justify-center h-full">
@@ -67,11 +67,16 @@ defmodule RoomyWeb.HomeLive do
               :for={message <- Enum.reverse(@chat_history || [])}
               class={[
                 "flex mb-3",
-                (if message.sender_id == @current_user.id, do: "justify-end", else: "justify-start")
+                if(message.sender_id == @current_user.id, do: "justify-end", else: "justify-start")
               ]}
             >
               <div class="flex flex-col gap-1">
-                <span :if={@current_room.type == RoomType.group() and message.sender.id != @current_user.id} class="text-xs pl-1 text-white">
+                <span
+                  :if={
+                    @current_room.type == RoomType.group() and message.sender.id != @current_user.id
+                  }
+                  class="text-xs pl-1 text-white"
+                >
                   <%= message.sender.display_name %>
                 </span>
                 <div class={"rounded-md px-2 py-1 " <> if message.sender_id == @current_user.id, do: "bg-bubble_me text-white", else: "bg-bubble_you text-nav_text_dark"}>
@@ -144,6 +149,8 @@ defmodule RoomyWeb.HomeLive do
         current_room: current_room,
         message_box_content: ""
       )
+
+    IO.inspect(new_socket.assigns)
 
     {:ok, new_socket}
   end
@@ -288,5 +295,16 @@ defmodule RoomyWeb.HomeLive do
 
   defp extract_time(%{hour: hour, minute: minute}) do
     "#{hour}:#{minute |> to_string() |> String.pad_leading(2, "0")}"
+  end
+
+  defp get_room_name(%Room{name: name, type: RoomType.group()}, _) do
+    name
+  end
+
+  defp get_room_name(%Room{type: RoomType.dm(), users: users}, current_user_id) do
+    users
+    |> Enum.find(fn %User{id: user_id} -> user_id != current_user_id end)
+    |> Maybe.pure()
+    |> Maybe.fold("error :(", fn %User{display_name: name} -> name end)
   end
 end

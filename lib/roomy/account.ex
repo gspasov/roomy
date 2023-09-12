@@ -134,7 +134,7 @@ defmodule Roomy.Account do
       join: user in UserRoom,
       on: room.id == user.room_id,
       where: user.user_id == ^id,
-      preload: [messages: ^last_received_message]
+      preload: [:users, messages: ^last_received_message]
     )
     |> Repo.all()
     |> Enum.into(%{}, fn %Room{id: id} = room -> {id, room} end)
