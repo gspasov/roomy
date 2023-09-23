@@ -102,7 +102,7 @@ defmodule RoomyWeb.HomeLive do
                 class="w-full pt-0 bg-neutral-50 border-none text-white bg-default_background placeholder:text-slate-300 focus:outline-none focus:ring-0"
                 placeholder="Type your message..."
                 phx-debounce="100"
-                value={@message_box_content}
+                value={Map.get(@message_box, @current_room.id, "")}
                 autofocus
               />
             </form>
@@ -147,7 +147,7 @@ defmodule RoomyWeb.HomeLive do
         rooms: rooms,
         chat_history: chat_history,
         current_room: current_room,
-        message_box_content: ""
+        message_box: %{}
       )
 
     {:ok, new_socket}
@@ -179,7 +179,8 @@ defmodule RoomyWeb.HomeLive do
         %{
           assigns: %{
             current_user: %User{id: user_id},
-            current_room: %Room{id: room_id}
+            current_room: %Room{id: room_id},
+            message_box: message_box
           }
         } = socket
       ) do
@@ -191,14 +192,18 @@ defmodule RoomyWeb.HomeLive do
         sent_at: DateTime.utc_now()
       })
 
-    new_socket = assign(socket, message_box_content: "")
+    new_socket = assign(socket, message_box: Map.put(message_box, room_id, ""))
 
     {:noreply, new_socket}
   end
 
   @impl true
-  def handle_event("message_box:change", %{"content" => content}, socket) do
-    new_socket = assign(socket, message_box_content: content)
+  def handle_event(
+        "message_box:change",
+        %{"content" => content},
+        %{assigns: %{current_room: %Room{id: room_id}, message_box: message_box}} = socket
+      ) do
+    new_socket = assign(socket, message_box: Map.put(message_box, room_id, content))
     {:noreply, new_socket}
   end
 
