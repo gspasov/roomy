@@ -16,9 +16,9 @@ defmodule Roomy.DataCase do
 
   use ExUnit.CaseTemplate
 
+  import Roomy.Factory
+
   alias Roomy.Repo
-  alias Roomy.Models.User
-  alias Roomy.TestUtils
   alias Ecto.Adapters.SQL.Sandbox
 
   using do
@@ -29,21 +29,17 @@ defmodule Roomy.DataCase do
       import Ecto.Changeset
       import Ecto.Query
       import Roomy.DataCase
+      import Roomy.Factory
+
+      import Roomy.TestUtils,
+        only: [send_friend_request: 3, subscribe_to_topic: 1, strip_unnecessary_fields: 1]
     end
   end
 
   setup tags do
     Roomy.DataCase.setup_sandbox(tags)
 
-    user1 =
-      %User{} =
-      TestUtils.create_user("foo_data_case_#{:rand.uniform(1_000)}", "Foo Bar", "123456")
-
-    user2 =
-      %User{} =
-      TestUtils.create_user("bar_data_case_#{:rand.uniform(1_000)}", "Bar Baz", "123456")
-
-    %{user1: user1, user2: user2}
+    %{user1: insert(:user), user2: insert(:user)}
   end
 
   @doc """

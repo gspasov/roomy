@@ -276,13 +276,16 @@ defmodule Roomy.Models.RoomTest do
       {:ok, %Room{messages: [message]}} = Room.get(room_id, :messages)
 
       assert strip_unnecessary_fields(message) == %{
+               id: message.id,
+               sent_at: message.sent_at,
                type: MessageType.system_group_join(),
                content: "User #{user2.display_name} has joined the group",
                deleted: false,
                edited: false,
                edited_at: nil,
                sender_id: nil,
-               room_id: room_id
+               room_id: room_id,
+               seen: message.seen
              }
     end
 
@@ -328,63 +331,66 @@ defmodule Roomy.Models.RoomTest do
         end)
 
       assert strip_unnecessary_fields(leave_message) == %{
+               id: leave_message.id,
                type: MessageType.system_group_leave(),
                content: "User #{user2.display_name} has left the group",
                deleted: false,
                edited: false,
                edited_at: nil,
                sender_id: nil,
-               room_id: room_id
+               room_id: room_id,
+               seen: leave_message.seen,
+               sent_at: leave_message.sent_at
              }
     end
   end
 
-  defp strip_unnecessary_fields(%Invitation{} = entry) do
-    invitation =
-      entry
-      |> Map.from_struct()
-      |> Map.delete(:id)
-      |> Map.delete(:__meta__)
-      |> Map.delete(:sender)
-      |> Map.delete(:receiver)
-      |> Map.delete(:receiver_id)
-      |> Map.delete(:updated_at)
-      |> Map.delete(:inserted_at)
+  # defp strip_unnecessary_fields(%Invitation{} = entry) do
+  #   invitation =
+  #     entry
+  #     |> Map.from_struct()
+  #     |> Map.delete(:id)
+  #     |> Map.delete(:__meta__)
+  #     |> Map.delete(:sender)
+  #     |> Map.delete(:receiver)
+  #     |> Map.delete(:receiver_id)
+  #     |> Map.delete(:updated_at)
+  #     |> Map.delete(:inserted_at)
 
-    %{
-      invitation
-      | room:
-          entry.room
-          |> Map.from_struct()
-          |> Map.delete(:__meta__)
-          |> Map.delete(:inserted_at)
-          |> Map.delete(:updated_at)
-          |> Map.delete(:users)
-          |> Map.delete(:messages)
-    }
-  end
+  #   %{
+  #     invitation
+  #     | room:
+  #         entry.room
+  #         |> Map.from_struct()
+  #         |> Map.delete(:__meta__)
+  #         |> Map.delete(:inserted_at)
+  #         |> Map.delete(:updated_at)
+  #         |> Map.delete(:users)
+  #         |> Map.delete(:messages)
+  #   }
+  # end
 
-  defp strip_unnecessary_fields(%Room{} = entry) do
-    entry
-    |> Map.from_struct()
-    |> Map.delete(:__meta__)
-    |> Map.delete(:inserted_at)
-    |> Map.delete(:updated_at)
-    |> Map.delete(:users)
-    |> Map.delete(:messages)
-  end
+  # defp strip_unnecessary_fields(%Room{} = entry) do
+  #   entry
+  #   |> Map.from_struct()
+  #   |> Map.delete(:__meta__)
+  #   |> Map.delete(:inserted_at)
+  #   |> Map.delete(:updated_at)
+  #   |> Map.delete(:users)
+  #   |> Map.delete(:messages)
+  # end
 
-  defp strip_unnecessary_fields(%Message{} = entry) do
-    entry
-    |> Map.from_struct()
-    |> Map.delete(:__meta__)
-    |> Map.delete(:id)
-    |> Map.delete(:room)
-    |> Map.delete(:sender)
-    |> Map.delete(:inserted_at)
-    |> Map.delete(:updated_at)
-    |> Map.delete(:users_messages)
-    |> Map.delete(:sent_at)
-    |> Map.delete(:seen)
-  end
+  # defp strip_unnecessary_fields(%Message{} = entry) do
+  #   entry
+  #   |> Map.from_struct()
+  #   |> Map.delete(:__meta__)
+  #   |> Map.delete(:id)
+  #   |> Map.delete(:room)
+  #   |> Map.delete(:sender)
+  #   |> Map.delete(:inserted_at)
+  #   |> Map.delete(:updated_at)
+  #   |> Map.delete(:users_messages)
+  #   |> Map.delete(:sent_at)
+  #   |> Map.delete(:seen)
+  # end
 end

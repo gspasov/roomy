@@ -42,9 +42,6 @@ defmodule RoomyWeb.HomeLive do
       </fieldset>
       <!-- Chat Area -->
       <fieldset class="flex flex-col w-full border border-gray-200 w-[75%]">
-        <legend class="px-2 text-sm text-center text-nav_text_light font-bold">
-          <%= get_room_name(@current_room, @current_user.id) %>
-        </legend>
         <%= if @current_room == nil do %>
           <div class="flex items-center justify-center h-full">
             <div class="text-highlight text-center">
@@ -57,6 +54,9 @@ defmodule RoomyWeb.HomeLive do
             </div>
           </div>
         <% else %>
+          <legend class="px-2 text-sm text-center text-nav_text_light font-bold">
+            <%= get_room_name(@current_room, @current_user.id) %>
+          </legend>
           <div
             id={"room-#{@current_room.id}"}
             class="overflow-y-scroll flex-grow px-2 pt-2"
@@ -150,8 +150,6 @@ defmodule RoomyWeb.HomeLive do
         message_box_content: ""
       )
 
-    IO.inspect(new_socket.assigns)
-
     {:ok, new_socket}
   end
 
@@ -167,11 +165,9 @@ defmodule RoomyWeb.HomeLive do
     rooms = Account.get_user_chat_rooms(user_id)
 
     new_socket =
-      assign(socket,
-        current_room: Map.get(rooms, room_id),
-        chat_history: chat_history,
-        rooms: rooms
-      )
+      socket
+      |> assign(current_room: Map.get(rooms, room_id), chat_history: chat_history, rooms: rooms)
+      |> push_event("focus_element", %{id: "message_box"})
 
     {:noreply, new_socket}
   end
@@ -297,7 +293,7 @@ defmodule RoomyWeb.HomeLive do
     "#{hour}:#{minute |> to_string() |> String.pad_leading(2, "0")}"
   end
 
-  defp get_room_name(%Room{name: name, type: RoomType.group()}, _) do
+  defp get_room_name(%Room{type: RoomType.group(), name: name}, _) do
     name
   end
 

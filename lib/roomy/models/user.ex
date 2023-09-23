@@ -146,6 +146,9 @@ defmodule Roomy.Models.User do
     end
   end
 
+  @spec hash_password(String.t()) :: String.t()
+  def hash_password(password), do: Bcrypt.hash_pwd_salt(password)
+
   defp validate_username(changeset, opts) do
     if Keyword.get(opts, :validate_username, true) do
       changeset
@@ -182,7 +185,7 @@ defmodule Roomy.Models.User do
       |> validate_length(:password, max: 72, count: :bytes)
       # Hashing could be done with `Ecto.Changeset.prepare_changes/2`, but that
       # would keep the database transaction open longer and hurt performance.
-      |> put_change(:hashed_password, Bcrypt.hash_pwd_salt(password))
+      |> put_change(:hashed_password, hash_password(password))
       |> delete_change(:password)
     else
       changeset

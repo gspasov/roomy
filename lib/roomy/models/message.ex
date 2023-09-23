@@ -122,7 +122,7 @@ defmodule Roomy.Models.Message do
              |> Repo.update() do
         result
       else
-        {:error, reason} -> Repo.rollback(reason)
+        error -> Repo.rollback(error)
       end
     end)
   end
@@ -154,7 +154,7 @@ defmodule Roomy.Models.Message do
              Repo.update(delete_changeset(message)) do
         result
       else
-        {:error, reason} -> Repo.rollback(reason)
+        error -> Repo.rollback(error)
       end
     end)
   end

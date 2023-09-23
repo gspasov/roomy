@@ -34,7 +34,7 @@ defmodule Roomy.Models.UserMessage do
   typedstruct module: Multi do
     field(:user_ids, [pos_integer()], enforce: true)
     field(:message_id, pos_integer(), enforce: true)
-    field(:seen, boolean())
+    field(:seen, boolean(), default: false)
   end
 
   typedstruct module: New do
@@ -55,8 +55,8 @@ defmodule Roomy.Models.UserMessage do
   end
 
   def create(%__MODULE__.Multi{user_ids: ids, message_id: message_id, seen: seen}) do
-    Repo.insert_all(
-      __MODULE__,
+    __MODULE__
+    |> Repo.insert_all(
       Enum.map(ids, fn id -> %{user_id: id, message_id: message_id, seen: seen} end)
     )
     |> case do
@@ -95,5 +95,15 @@ defmodule Roomy.Models.UserMessage do
       select: um
     )
     |> Repo.all()
+  end
+
+  def get_all_unread(user_id, room_id) do
+    from(um in __MODULE__,
+      join: m in assoc(um, :message),
+      where:
+        um.user_id == ^user_id and
+          m.room_id == ^room_id and
+          um.seen == false
+    )
   end
 end

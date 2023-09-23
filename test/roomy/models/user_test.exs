@@ -160,21 +160,4 @@ defmodule Roomy.UserTest do
   defp create_username() do
     "example#{:rand.uniform(1_000_000_000)}"
   end
-
-  defp strip_unnecessary_fields(user) do
-    user
-    |> Map.from_struct()
-    |> Map.delete(:__meta__)
-    |> Map.delete(:id)
-    |> Map.delete(:hashed_password)
-    |> Map.delete(:rooms)
-    |> Map.delete(:password)
-    |> Map.delete(:messages)
-    |> Map.delete(:sent_invitations)
-    |> Map.delete(:received_invitations)
-    |> Map.delete(:friends)
-    |> Map.delete(:tokens)
-    |> Map.delete(:inserted_at)
-    |> Map.delete(:updated_at)
-  end
 end

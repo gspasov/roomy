@@ -5,7 +5,6 @@ defmodule Roomy.MessageTest do
   alias Roomy.Account
   alias Roomy.Request
   alias Roomy.Utils
-  alias Roomy.TestUtils
   alias Roomy.Models.Message
   alias Roomy.Models.UserMessage
   alias Roomy.Constants.MessageType
@@ -35,7 +34,7 @@ defmodule Roomy.MessageTest do
       Enum.map(1..5, fn _ ->
         room.id
         |> Bus.Topic.room()
-        |> TestUtils.subscribe_to_topic()
+        |> subscribe_to_topic()
       end)
 
     sent_at = DateTime.utc_now()
@@ -114,7 +113,8 @@ defmodule Roomy.MessageTest do
                edited_at: nil,
                deleted: false,
                sent_at: sent_at_2,
-               type: MessageType.normal()
+               type: MessageType.normal(),
+               seen: unread_message.seen
              }
   end
 
@@ -193,19 +193,8 @@ defmodule Roomy.MessageTest do
              edited_at: nil,
              deleted: true,
              sent_at: sent_at,
-             type: MessageType.normal()
+             type: MessageType.normal(),
+             seen: message.seen
            }
-  end
-
-  defp strip_unnecessary_fields(%Message{} = message) do
-    message
-    |> Map.from_struct()
-    |> Map.delete(:__meta__)
-    |> Map.delete(:inserted_at)
-    |> Map.delete(:updated_at)
-    |> Map.delete(:users_messages)
-    |> Map.delete(:room)
-    |> Map.delete(:sender)
-    |> Map.delete(:seen)
   end
 end

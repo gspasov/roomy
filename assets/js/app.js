@@ -47,7 +47,19 @@ Hooks.ScrollBack = {
 };
 
 window.addEventListener(`phx:focus_element`, (event) => {
-  document.getElementById(event.target.id).focus();
+  console.log("here", event);
+  if (event.target.id) {
+    console.log("focus via target");
+    document.getElementById(event.target.id).focus();
+    return;
+  }
+
+  if (event.detail.id) {
+    console.log("focus via detail", event.detail);
+    console.log(event.detail.id, document.getElementById(event.detail.id));
+    document.getElementById(event.detail.id).focus();
+    return;
+  }
 });
 
 let csrfToken = document

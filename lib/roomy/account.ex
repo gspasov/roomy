@@ -111,7 +111,8 @@ defmodule Roomy.Account do
     end
   end
 
-  def get_user_chat_rooms(id) do
+  @spec get_user_chat_rooms(pos_integer()) :: %{pos_integer() => Room.t()}
+  def get_user_chat_rooms(user_id) do
     ranking_query =
       from(message in Message,
         where:
@@ -121,11 +122,14 @@ defmodule Roomy.Account do
         windows: [messages_partition: [partition_by: :room_id, order_by: [desc: :sent_at]]]
       )
 
-    last_received_message =
+    last_room_message =
       from(message in Message,
         join: ranked_message in subquery(ranking_query),
         on: message.id == ranked_message.id and ranked_message.row_number == 1,
         join: user_message in assoc(message, :users_messages),
+        on:
+          message.id == user_message.message_id and
+            (user_message.user_id == ^user_id or message.sender_id == ^user_id),
         distinct: message.id,
         select: %{message | seen: user_message.seen}
       )
@@ -133,8 +137,8 @@ defmodule Roomy.Account do
     from(room in Room,
       join: user in UserRoom,
       on: room.id == user.room_id,
-      where: user.user_id == ^id,
-      preload: [:users, messages: ^last_received_message]
+      where: user.user_id == ^user_id,
+      preload: [:users, messages: ^last_room_message]
     )
     |> Repo.all()
     |> Enum.into(%{}, fn %Room{id: id} = room -> {id, room} end)
@@ -177,7 +181,7 @@ defmodule Roomy.Account do
              Invitation.create(invitation_params.(room_id, receiver_id)) do
         invitation
       else
-        {:error, reason} -> Repo.rollback(reason)
+        error -> Repo.rollback(error)
       end
     end)
   end
@@ -216,7 +220,7 @@ defmodule Roomy.Account do
            {:ok, _} <- maybe_add_system_message(accepted?, room_type, receiver, room_id) do
         invitation
       else
-        {:error, reason} -> Repo.rollback(reason)
+        error -> Repo.rollback(error)
       end
     end)
   end
@@ -251,7 +255,7 @@ defmodule Roomy.Account do
              }) do
         {:ok, message}
       else
-        {:error, reason} -> Repo.rollback(reason)
+        error -> Repo.rollback(error)
       end
     end)
     |> tap(fn
@@ -281,11 +285,8 @@ defmodule Roomy.Account do
 
   @spec mark_room_messages_as_read(pos_integer(), pos_integer()) :: {non_neg_integer(), nil}
   def mark_room_messages_as_read(reader_id, room_id) do
-    from(um in UserMessage,
-      join: ur in UserRoom,
-      on: ur.user_id == um.user_id and ur.room_id == ^room_id,
-      where: um.user_id == ^reader_id and um.seen == false
-    )
+    reader_id
+    |> UserMessage.get_all_unread(room_id)
     |> Repo.update_all(set: [seen: true, updated_at: DateTime.utc_now()])
   end
 
@@ -387,12 +388,12 @@ defmodule Roomy.Account do
            :ok <- create_invitations.(invited_users, room_id) do
         room
       else
-        {:error, reason} ->
+        {:error, reason} = error ->
           Logger.error(
             "Failed to create group chat for #{inspect(request)} with #{inspect(reason)}"
           )
 
-          Repo.rollback(reason)
+          Repo.rollback(error)
       end
     end)
   end
@@ -417,9 +418,9 @@ defmodule Roomy.Account do
            {:ok, %Message{}} <- Message.create(system_message_params.(name)) do
         user_room
       else
-        {:error, reason} ->
+        {:error, reason} = error ->
           Logger.error("Failed to leave room for #{inspect(request)} with #{inspect(reason)}")
-          Repo.rollback(reason)
+          Repo.rollback(error)
       end
     end)
   end

@@ -3,10 +3,11 @@ defmodule Roomy.RoomCase do
 
   use ExUnit.CaseTemplate
 
+  import Roomy.Factory
+
   alias Roomy.Repo
   alias Roomy.Account
   alias Roomy.TestUtils
-  alias Roomy.Models.User
   alias Roomy.Models.Room
   alias Roomy.Models.Invitation
   alias Roomy.Constants.RoomType
@@ -22,14 +23,18 @@ defmodule Roomy.RoomCase do
       import Ecto.Changeset
       import Ecto.Query
       import Roomy.DataCase
+      import Roomy.Factory
+
+      import Roomy.TestUtils,
+        only: [send_friend_request: 3, subscribe_to_topic: 1, strip_unnecessary_fields: 1]
     end
   end
 
   setup tags do
     Roomy.DataCase.setup_sandbox(tags)
 
-    user1 = %User{} = TestUtils.create_user("foo_room_case", "Foo Bar", "123456")
-    user2 = %User{} = TestUtils.create_user("bar_room_case", "Bar Baz", "123456")
+    user1 = insert(:user)
+    user2 = insert(:user)
 
     %Invitation{id: invitation_id} =
       TestUtils.send_friend_request(

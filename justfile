@@ -3,8 +3,11 @@ default: web
 help:
   just --list
 
-deps:
-  mix deps.get
+deps *args:
+  mix deps.{{args}}
+
+format:
+  mix format
 
 compile:
   mix compile
@@ -12,7 +15,10 @@ compile:
 analyze: compile
   mix dialyzer
 
-build: deps compile analyze
+build: deps compile
+
+prepare: build
+  just ecto setup
 
 server:
   iex -S mix
@@ -20,18 +26,9 @@ server:
 web:
   iex -S mix phx.server
 
-format:
-  mix format
-
 test *args:
   mix test {{args}}
 
-prepare: build
-  mix ecto.setup
-
-reset:
-  mix ecto.reset
-
-migrate *args:
-  mix ecto.migrate {{args}}
+ecto *args:
+  mix ecto.{{args}}
 

@@ -54,7 +54,8 @@ defmodule Roomy.MixProject do
       {:typed_struct, "~> 0.3.0"},
       {:scrivener_ecto, "~> 2.0"},
       {:dialyxir, "~> 1.3", only: [:dev], runtime: false},
-      {:warm_fuzzy_thing, "~> 0.1.0"}
+      {:warm_fuzzy_thing, "~> 0.1.0"},
+      {:ex_machina, "~> 2.7.0"}
     ]
   end
 

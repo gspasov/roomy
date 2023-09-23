@@ -3,7 +3,6 @@ defmodule Roomy.BusTest do
 
   alias Roomy.Bus
   alias Roomy.Utils
-  alias Roomy.TestUtils
   alias Roomy.Models.Message
 
   require Bus.Topic
@@ -14,7 +13,7 @@ defmodule Roomy.BusTest do
     subscriber =
       room_id
       |> Bus.Topic.room()
-      |> TestUtils.subscribe_to_topic()
+      |> subscribe_to_topic()
 
     sent_at = DateTime.utc_now()
     # Give some time for the other process to subscribe to the topic

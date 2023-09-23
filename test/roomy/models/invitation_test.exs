@@ -1,7 +1,6 @@
 defmodule Roomy.Models.InvitationTest do
   use Roomy.DataCase, async: true
 
-  alias Roomy.TestUtils
   alias Roomy.Account
   alias Roomy.Models.User
   alias Roomy.Models.Room
@@ -21,7 +20,7 @@ defmodule Roomy.Models.InvitationTest do
     receiver_username = user2.username
 
     %Invitation{} =
-      TestUtils.send_friend_request(
+      send_friend_request(
         sender_id,
         receiver_username,
         "It's a me, Mario!"
@@ -39,7 +38,7 @@ defmodule Roomy.Models.InvitationTest do
     receiver_username = user2.username
 
     %Invitation{id: invitation_id} =
-      TestUtils.send_friend_request(
+      send_friend_request(
         sender_id,
         receiver_username,
         "It's a me, Mario!"
@@ -66,7 +65,7 @@ defmodule Roomy.Models.InvitationTest do
     receiver_id = user2.id
     receiver_username = user2.username
 
-    TestUtils.send_friend_request(
+    send_friend_request(
       sender_id,
       receiver_username,
       "It's a me, Mario!"
@@ -85,7 +84,7 @@ defmodule Roomy.Models.InvitationTest do
     receiver_username = user2.username
 
     %Invitation{id: invitation_id} =
-      TestUtils.send_friend_request(
+      send_friend_request(
         sender_id,
         receiver_username,
         "It's a me, Mario!"
@@ -112,7 +111,7 @@ defmodule Roomy.Models.InvitationTest do
     receiver_username = user2.username
 
     %Invitation{id: invitation_id} =
-      TestUtils.send_friend_request(
+      send_friend_request(
         sender_id,
         receiver_username,
         "It's a me, Mario!"
@@ -142,7 +141,7 @@ defmodule Roomy.Models.InvitationTest do
     receiver_username = user2.username
 
     %Invitation{id: invitation_id} =
-      TestUtils.send_friend_request(
+      send_friend_request(
         sender_id,
         receiver_username,
         "It's a me, Mario!"
