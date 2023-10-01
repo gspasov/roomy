@@ -9,6 +9,16 @@ defmodule Roomy.Models.UserFriend do
   alias Roomy.Repo
   alias Roomy.Models.User
 
+  @type t :: %__MODULE__{
+          id: pos_integer(),
+          user1: User.t(),
+          user1_id: pos_integer(),
+          user2: User.t(),
+          user2_id: pos_integer(),
+          inserted_at: DateTime.t(),
+          updated_at: DateTime.t()
+        }
+
   @allowed_fields [:user1_id, :user2_id]
 
   schema "users_friends" do
@@ -41,5 +51,15 @@ defmodule Roomy.Models.UserFriend do
     attrs
     |> changeset()
     |> Repo.insert()
+  end
+
+  @spec get(pos_integer(), pos_integer()) :: {:ok, __MODULE__.t()} | {:error, :not_found}
+  def get(user1_id, user2_id) do
+    __MODULE__
+    |> Repo.get_by(user1_id: user1_id, user2_id: user2_id)
+    |> case do
+      %__MODULE__{} = data -> {:ok, data}
+      nil -> {:error, :not_found}
+    end
   end
 end

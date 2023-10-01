@@ -10,7 +10,7 @@ format:
   mix format
 
 compile:
-  mix compile
+  mix compile_with_errors
 
 analyze: compile
   mix dialyzer

@@ -7,7 +7,8 @@ defmodule RoomyWeb.Components.ContextMenu do
     ~H"""
     <div class="flex w-full px-2 select-none bg-navigation">
       <.menu id={1} title="Menu">
-        <:item title="Chat" href={~p"/"} method="get" />
+        <:item title="Chat" href={~p"/"} />
+        <:item title="Friends" href={~p"/users/friends"} />
         <:item title="Settings" href={~p"/users/settings"} />
         <:item border={true} />
         <:item title="Logout" href={~p"/users/log_out"} method="delete" />
@@ -36,7 +37,7 @@ defmodule RoomyWeb.Components.ContextMenu do
       <span class="text-highlight"><%= String.first(@title) %></span><%= String.slice(@title, 1, 99) %>
       <div
         id={"context-menu-" <> to_string(@id)}
-        class="absolute left-0 p-1 w-48 flex hidden bg-navigation"
+        class="absolute left-0 p-1 w-48 flex hidden bg-navigation z-10"
       >
         <ul class="border-2 py-2 border-nav_text_light">
           <li :for={item <- @item}>

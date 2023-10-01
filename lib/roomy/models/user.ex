@@ -9,10 +9,8 @@ defmodule Roomy.Models.User do
 
   alias Roomy.Repo
   alias Roomy.Models.Room
-  # alias Roomy.Models.Message
   alias Roomy.Models.Invitation
   alias Roomy.Models.UserRoom
-  # alias Roomy.Models.UserMessage
   alias Roomy.Models.UserFriend
   alias Roomy.Models.UserToken
 
@@ -21,10 +19,8 @@ defmodule Roomy.Models.User do
           username: String.t(),
           display_name: String.t(),
           rooms: [Room.t()],
-          # messages: [Message.t()],
           friends: [__MODULE__.t()],
-          sent_invitations: [Invitation.t()],
-          received_invitations: [Invitation.t()],
+          invitations: [Invitation.t()],
           tokens: [UserToken.t()],
           inserted_at: DateTime.t(),
           updated_at: DateTime.t()
@@ -33,7 +29,6 @@ defmodule Roomy.Models.User do
   @session_validity_in_days 60
 
   @allowed_fields [:username, :display_name, :password]
-  # @default_preloads [[rooms: :users], :friends, :received_invitations]
   @default_preloads []
 
   def default_preloads, do: @default_preloads
@@ -45,15 +40,13 @@ defmodule Roomy.Models.User do
     field(:hashed_password, :string, redact: true)
 
     many_to_many(:rooms, Room, join_through: UserRoom)
-    # many_to_many(:messages, Message, join_through: UserMessage)
 
     many_to_many(:friends, __MODULE__,
       join_through: UserFriend,
       join_keys: [user1_id: :id, user2_id: :id]
     )
 
-    has_many(:sent_invitations, Invitation, foreign_key: :sender_id)
-    has_many(:received_invitations, Invitation, foreign_key: :receiver_id)
+    has_many(:invitations, Invitation, foreign_key: :receiver_id)
     has_many(:tokens, UserToken)
 
     timestamps(type: :utc_datetime_usec)
@@ -92,12 +85,13 @@ defmodule Roomy.Models.User do
     |> Repo.insert()
   end
 
-  @spec get(pos_integer(), [atom()]) :: {:ok, __MODULE__.t()} | {:error, :not_found}
+  @spec get(pos_integer(), any()) :: {:ok, __MODULE__.t()} | {:error, :not_found}
   def get(id, preloads \\ []) when is_number(id) do
     get_by([id: id], preloads)
   end
 
-  @spec get_by([{atom(), any()}], [atom()]) :: {:ok, __MODULE__.t()} | {:error, :not_found}
+  @spec get_by([{atom(), any()}], any()) ::
+          {:ok, __MODULE__.t()} | {:error, :not_found}
   def get_by(opts, preloads \\ []) do
     __MODULE__
     |> Repo.get_by(opts)
@@ -116,6 +110,17 @@ defmodule Roomy.Models.User do
       preload: ^@default_preloads
     )
     |> Repo.one()
+  end
+
+  def find_users_by_name(name) do
+    like = "%#{name}%"
+
+    from(user in __MODULE__,
+      where:
+        ilike(user.username, ^like) or
+          ilike(user.display_name, ^like)
+    )
+    |> Repo.all()
   end
 
   def delete(%__MODULE__{} = user) do

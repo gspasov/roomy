@@ -10,11 +10,13 @@ defmodule Roomy.Models.Room do
   alias Roomy.Models.User
   alias Roomy.Models.Message
   alias Roomy.Models.UserRoom
+  alias Roomy.Models.Invitation
 
   @type t :: %__MODULE__{
           id: pos_integer(),
           name: String.t(),
           type: String.t(),
+          invitation: Invitation.t() | nil,
           users: [User.t()],
           messages: [Message.t()]
         }
@@ -27,6 +29,7 @@ defmodule Roomy.Models.Room do
 
     many_to_many(:users, User, join_through: UserRoom)
     has_many(:messages, Message)
+    has_one(:invitation, Invitation)
 
     timestamps(type: :utc_datetime_usec)
   end

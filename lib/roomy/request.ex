@@ -13,7 +13,7 @@ defmodule Roomy.Request do
   end
 
   typedstruct module: SendFriendRequest do
-    field(:receiver_username, String.t(), enforce: true)
+    field(:receiver_id, pos_integer(), enforce: true)
     field(:sender_id, pos_integer(), enforce: true)
     field(:invitation_message, String.t())
   end

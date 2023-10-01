@@ -17,12 +17,11 @@ defmodule Roomy.Models.InvitationTest do
   } do
     sender_id = user1.id
     receiver_id = user2.id
-    receiver_username = user2.username
 
     %Invitation{} =
       send_friend_request(
         sender_id,
-        receiver_username,
+        receiver_id,
         "It's a me, Mario!"
       )
 
@@ -35,12 +34,12 @@ defmodule Roomy.Models.InvitationTest do
 
   test "Friend request cannot be updated with status 'pending'", %{user1: user1, user2: user2} do
     sender_id = user1.id
-    receiver_username = user2.username
+    receiver_id = user2.id
 
     %Invitation{id: invitation_id} =
       send_friend_request(
         sender_id,
-        receiver_username,
+        receiver_id,
         "It's a me, Mario!"
       )
 
@@ -63,11 +62,10 @@ defmodule Roomy.Models.InvitationTest do
   } do
     sender_id = user1.id
     receiver_id = user2.id
-    receiver_username = user2.username
 
     send_friend_request(
       sender_id,
-      receiver_username,
+      receiver_id,
       "It's a me, Mario!"
     )
 
@@ -81,12 +79,11 @@ defmodule Roomy.Models.InvitationTest do
   test "If a friend request is accepted, users become friends", %{user1: user1, user2: user2} do
     sender_id = user1.id
     receiver_id = user2.id
-    receiver_username = user2.username
 
     %Invitation{id: invitation_id} =
       send_friend_request(
         sender_id,
-        receiver_username,
+        receiver_id,
         "It's a me, Mario!"
       )
 
@@ -108,12 +105,11 @@ defmodule Roomy.Models.InvitationTest do
   } do
     sender_id = user1.id
     receiver_id = user2.id
-    receiver_username = user2.username
 
     %Invitation{id: invitation_id} =
       send_friend_request(
         sender_id,
-        receiver_username,
+        receiver_id,
         "It's a me, Mario!"
       )
 
@@ -138,12 +134,11 @@ defmodule Roomy.Models.InvitationTest do
   } do
     sender_id = user1.id
     receiver_id = user2.id
-    receiver_username = user2.username
 
     %Invitation{id: invitation_id} =
       send_friend_request(
         sender_id,
-        receiver_username,
+        receiver_id,
         "It's a me, Mario!"
       )
 

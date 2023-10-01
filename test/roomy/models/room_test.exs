@@ -108,19 +108,19 @@ defmodule Roomy.Models.RoomTest do
       {:ok, %Invitation{} = fr_request1} =
         Account.send_friend_request(%Request.SendFriendRequest{
           sender_id: user1.id,
-          receiver_username: user2.username
+          receiver_id: user2.username
         })
 
       {:ok, %Invitation{} = fr_request2} =
         Account.send_friend_request(%Request.SendFriendRequest{
           sender_id: user1.id,
-          receiver_username: user3.username
+          receiver_id: user3.username
         })
 
       {:ok, %Invitation{} = fr_request3} =
         Account.send_friend_request(%Request.SendFriendRequest{
           sender_id: user1.id,
-          receiver_username: user4.username
+          receiver_id: user4.username
         })
 
       {:ok, _} = Account.answer_invitation(fr_request1.id, true)
@@ -184,13 +184,13 @@ defmodule Roomy.Models.RoomTest do
       {:ok, %Invitation{} = fr_request1} =
         Account.send_friend_request(%Request.SendFriendRequest{
           sender_id: user1.id,
-          receiver_username: user2.username
+          receiver_id: user2.username
         })
 
       {:ok, %Invitation{} = fr_request2} =
         Account.send_friend_request(%Request.SendFriendRequest{
           sender_id: user1.id,
-          receiver_username: user3.username
+          receiver_id: user3.username
         })
 
       {:ok, _} = Account.answer_invitation(fr_request1.id, true)

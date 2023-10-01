@@ -55,7 +55,8 @@ defmodule Roomy.MixProject do
       {:scrivener_ecto, "~> 2.0"},
       {:dialyxir, "~> 1.3", only: [:dev], runtime: false},
       {:warm_fuzzy_thing, "~> 0.1.0"},
-      {:ex_machina, "~> 2.7.0"}
+      {:ex_machina, "~> 2.7.0"},
+      {:timex, "~> 3.7"}
     ]
   end
 
@@ -69,7 +70,8 @@ defmodule Roomy.MixProject do
     [
       setup: ["deps.get", "compile", "ecto.setup", "assets.setup", "assets.build"],
       test: ["ecto.drop", "ecto.create --quiet", "ecto.migrate --quiet", "test"],
-      compile: ["compile --warnings-as-errors --force"],
+      compile: ["compile"],
+      compile_with_errors: ["compile --warnings-as-errors --force"],
       "ecto.setup": ["ecto.create", "ecto.migrate", "run priv/repo/seeds.exs"],
       "ecto.reset": ["ecto.drop", "ecto.setup"],
       "assets.setup": ["tailwind.install --if-missing", "esbuild.install --if-missing"],

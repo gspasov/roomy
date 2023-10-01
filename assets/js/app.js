@@ -46,6 +46,18 @@ Hooks.ScrollBack = {
   },
 };
 
+Hooks.MouseEvent = {
+  mounted() {
+    this.el.addEventListener("mouseover", (_) => {
+      this.pushEvent("hook:mouse_over", { id: this.el.id });
+    });
+
+    this.el.addEventListener("mouseout", (_) => {
+      this.pushEvent("hook:mouse_out", { id: this.el.id });
+    });
+  },
+};
+
 window.addEventListener(`phx:focus_element`, (event) => {
   console.log("here", event);
   if (event.target.id) {
@@ -66,12 +78,19 @@ let csrfToken = document
   .querySelector("meta[name='csrf-token']")
   .getAttribute("content");
 let liveSocket = new LiveSocket("/live", Socket, {
-  params: { _csrf_token: csrfToken },
+  params: {
+    _csrf_token: csrfToken,
+    locale: Intl.NumberFormat().resolvedOptions().locale,
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+  },
   hooks: Hooks,
 });
 
 // Show progress bar on live navigation and form submits
-topbar.config({ barColors: { 0: "#29d" }, shadowColor: "rgba(0, 0, 0, .3)" });
+topbar.config({
+  barColors: { 0: "#FCE94F" },
+  shadowColor: "rgba(0, 0, 0, .3)",
+});
 window.addEventListener("phx:page-loading-start", (_info) => topbar.show(300));
 window.addEventListener("phx:page-loading-stop", (_info) => topbar.hide());
 

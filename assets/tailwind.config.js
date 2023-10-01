@@ -18,6 +18,8 @@ module.exports = {
         highlight: "#FCE94F",
         bubble_me: "#A47334",
         bubble_you: "#E8ECEA",
+        dialog_info: "#AAAAAA",
+        dialog_error: "#AB0101",
       },
       minWidth: {
         18: "18rem",

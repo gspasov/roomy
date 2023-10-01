@@ -60,6 +60,39 @@ defmodule Roomy.Account do
     end
   end
 
+  @spec get_user_invitations(pos_integer()) :: [Invitation.t()]
+  def get_user_invitations(user_id) when is_integer(user_id) do
+    Invitation.all_by(
+      filter: [receiver_id: user_id, status: InvitationStatus.pending()],
+      order_by: [desc: :inserted_at]
+    )
+  end
+
+  @spec get_user_friends(pos_integer()) :: [User.t()]
+  def get_user_friends(user_id) when is_integer(user_id) do
+    case User.get(user_id, [:friends]) do
+      {:ok, %User{friends: friends}} -> friends
+      {:error, :not_found} -> []
+    end
+  end
+
+  @spec can_send_friend_invitation?(pos_integer(), pos_integer()) :: :ok | {:error, reason}
+        when reason: :already_friends | :invitation_already_sent
+  def can_send_friend_invitation?(sender_id, receiver_id) do
+    with {:error, :not_found} <- UserFriend.get(sender_id, receiver_id),
+         {:error, :not_found} <-
+           Invitation.get_by(
+             sender_id: sender_id,
+             receiver_id: receiver_id,
+             status: InvitationStatus.pending()
+           ) do
+      :ok
+    else
+      {:ok, %UserFriend{}} -> {:error, :already_friends}
+      {:ok, %Invitation{}} -> {:error, :invitation_already_sent}
+    end
+  end
+
   def change_user_registration(%User{} = user, attrs \\ %{}) do
     User.registration_changeset(user, attrs, hash_password: false)
   end
@@ -135,21 +168,26 @@ defmodule Roomy.Account do
       )
 
     from(room in Room,
-      join: user in UserRoom,
-      on: room.id == user.room_id,
-      where: user.user_id == ^user_id,
+      join: user in assoc(room, :users),
+      join: invitation in assoc(room, :invitation),
+      where: user.id == ^user_id and invitation.status == ^InvitationStatus.accepted(),
       preload: [:users, messages: ^last_room_message]
     )
     |> Repo.all()
     |> Enum.into(%{}, fn %Room{id: id} = room -> {id, room} end)
   end
 
+  @spec find_users_by_name(String.t()) :: [User.t()]
+  def find_users_by_name(name) do
+    User.find_users_by_name(name)
+  end
+
   @spec send_friend_request(Roomy.Request.SendFriendRequest.t()) ::
           {:ok, Invitation.t()} | {:error, Ecto.Changeset.t()}
   def send_friend_request(%Request.SendFriendRequest{
         sender_id: sender_id,
-        invitation_message: message,
-        receiver_username: receiver_username
+        receiver_id: receiver_id,
+        invitation_message: message
       }) do
     room_params =
       &%Room.New{
@@ -172,8 +210,7 @@ defmodule Roomy.Account do
       }
 
     Repo.tx(fn ->
-      with {:ok, %User{id: receiver_id}} <-
-             User.get_by(username: receiver_username),
+      with {:ok, %User{}} <- User.get(receiver_id),
            {:ok, %Room{id: room_id}} <- Room.create(room_params.(receiver_id)),
            {:ok, %UserRoom{}} <-
              UserRoom.add_user_to_room(user_room_params.(room_id)),
@@ -184,11 +221,21 @@ defmodule Roomy.Account do
         error -> Repo.rollback(error)
       end
     end)
+    |> tap(fn
+      {:ok, _} ->
+        Bus.Event.invitation_request(%Bus.Event.FriendInvitationRequest{
+          user_id: receiver_id,
+          sender_id: sender_id
+        })
+
+      _ ->
+        nil
+    end)
   end
 
   @spec list_invitations(user_id: pos_integer()) :: [Invitation.t()]
   def list_invitations(user_id) do
-    Invitation.all(user_id)
+    Invitation.all_by(receiver_id: user_id)
   end
 
   @spec answer_invitation(request_id :: pos_integer(), is_accepted :: boolean()) ::

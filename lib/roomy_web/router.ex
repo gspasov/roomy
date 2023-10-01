@@ -68,6 +68,7 @@ defmodule RoomyWeb.Router do
       on_mount: [{RoomyWeb.UserAuth, :ensure_authenticated}] do
       live "/", HomeLive, :index
       live "/users/settings", UserSettingsLive, :edit
+      live "/users/friends", FriendsLive, :edit
     end
   end
 

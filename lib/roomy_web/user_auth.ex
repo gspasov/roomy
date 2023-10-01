@@ -149,7 +149,10 @@ defmodule RoomyWeb.UserAuth do
   end
 
   def on_mount(:ensure_authenticated, _params, session, socket) do
-    socket = mount_current_user(socket, session)
+    socket =
+      socket
+      |> mount_current_user(session)
+      |> Phoenix.Component.assign(timezone: Map.get(socket.private.connect_params, "timezone"))
 
     if socket.assigns.current_user do
       {:cont, socket}

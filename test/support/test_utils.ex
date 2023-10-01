@@ -11,10 +11,10 @@ defmodule Roomy.TestUtils do
   alias Roomy.Models.Message
   alias Roomy.Models.Invitation
 
-  def send_friend_request(sender_id, username, message) do
+  def send_friend_request(sender_id, receiver_id, message) do
     invitation = %Request.SendFriendRequest{
       sender_id: sender_id,
-      receiver_username: username,
+      receiver_id: receiver_id,
       invitation_message: message
     }
 
