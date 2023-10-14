@@ -1,13 +1,9 @@
 defmodule Roomy.Models.UserMessage do
   @moduledoc false
 
-  use Ecto.Schema
+  use Roomy.EctoModel
   use TypedStruct
 
-  import Ecto.Changeset
-  import Ecto.Query
-
-  alias Roomy.Repo
   alias Roomy.Models.User
   alias Roomy.Models.Message
 
@@ -48,13 +44,19 @@ defmodule Roomy.Models.UserMessage do
     field(:message_id, pos_integer(), enforce: true)
   end
 
-  def changeset(%__MODULE__{} = user_message, %__MODULE__.New{} = attrs) do
-    user_message
-    |> cast(Map.from_struct(attrs), @allowed_fields)
+  def create_changeset(%__MODULE__{} = struct, attrs \\ %{}) do
+    struct
+    |> cast(attrs, @allowed_fields)
     |> validate_required(@required_fields)
   end
 
-  def create(%__MODULE__.Multi{user_ids: ids, message_id: message_id, seen: seen}) do
+  def update_changeset(%__MODULE__{} = struct, attrs \\ %{}) do
+    struct
+    |> cast(attrs, @allowed_fields)
+    |> put_change(:seen, true)
+  end
+
+  def multiple(%__MODULE__.Multi{user_ids: ids, message_id: message_id, seen: seen}) do
     __MODULE__
     |> Repo.insert_all(
       Enum.map(ids, fn id -> %{user_id: id, message_id: message_id, seen: seen} end)
@@ -68,33 +70,9 @@ defmodule Roomy.Models.UserMessage do
   def read(%__MODULE__.Read{message_id: message_id, user_id: user_id}) do
     with {:ok, %__MODULE__{} = user_message} <- get_by(message_id: message_id, user_id: user_id) do
       user_message
-      |> changeset(%__MODULE__.New{message_id: message_id, user_id: user_id, seen: true})
-      |> Repo.update()
+      |> update_changeset()
+      |> update()
     end
-  end
-
-  def get(id, preloads \\ []) when is_number(id) do
-    get_by([id: id], preloads)
-  end
-
-  def get_by(opts, preloads \\ []) do
-    __MODULE__
-    |> Repo.get_by(opts)
-    |> Repo.preload(preloads)
-    |> case do
-      nil -> {:error, :not_found}
-      entry -> {:ok, entry}
-    end
-  end
-
-  def all(message_id) do
-    from(um in __MODULE__,
-      join: m in Message,
-      on: m.id == um.message_id,
-      where: um.message_id == ^message_id,
-      select: um
-    )
-    |> Repo.all()
   end
 
   def get_all_unread(user_id, room_id) do

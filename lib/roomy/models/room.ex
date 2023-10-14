@@ -1,12 +1,9 @@
 defmodule Roomy.Models.Room do
   @moduledoc false
 
-  use Ecto.Schema
+  use Roomy.EctoModel
   use TypedStruct
 
-  import Ecto.Changeset
-
-  alias Roomy.Repo
   alias Roomy.Models.User
   alias Roomy.Models.Message
   alias Roomy.Models.UserRoom
@@ -39,31 +36,14 @@ defmodule Roomy.Models.Room do
     field(:type, String.t())
   end
 
-  def changeset(%__MODULE__{} = room, %__MODULE__.New{} = attrs) do
+  def create_changeset(%__MODULE__{} = room, attrs) do
     room
-    |> cast(Map.from_struct(attrs), @allowed_fields)
+    |> cast(attrs, @allowed_fields)
     |> validate_required(@allowed_fields)
   end
 
-  @spec create(__MODULE__.New.t()) ::
-          {:ok, __MODULE__.t()} | {:error, Ecto.Changeset.t(__MODULE__.t())}
-  def create(%__MODULE__.New{} = attrs) do
-    %__MODULE__{}
-    |> changeset(attrs)
-    |> Repo.insert()
-  end
-
-  def get(id, preloads \\ []) when is_number(id) do
-    get_by([id: id], preloads)
-  end
-
-  def get_by(opts, preloads \\ []) do
-    __MODULE__
-    |> Repo.get_by(opts)
-    |> Repo.preload(preloads)
-    |> case do
-      nil -> {:error, :not_found}
-      entry -> {:ok, entry}
-    end
+  def update_changeset(%__MODULE__{} = room, attrs) do
+    room
+    |> cast(attrs, @allowed_fields)
   end
 end

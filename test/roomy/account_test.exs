@@ -5,11 +5,10 @@ defmodule Roomy.AccountTest do
   alias Roomy.Models.Room
   alias Roomy.Models.User
   alias Roomy.Models.UserToken
-  alias Roomy.Constants.RoomType
-  alias Roomy.Constants.MessageType
 
-  require Roomy.Constants.RoomType
-  require Roomy.Constants.MessageType
+  require Roomy.Constants.RoomType, as: RoomType
+  require Roomy.Constants.MessageType, as: MessageType
+  require Roomy.Constants.InvitationStatus, as: InvitationStatus
 
   describe "get_user_by_username_and_password/2" do
     test "does not return the user if the username does not exist" do
@@ -329,19 +328,58 @@ defmodule Roomy.AccountTest do
       insert(:user_friend, user1: user1, user2: user3)
 
       group_room = insert(:room, type: RoomType.group())
+
+      insert(:invitation,
+        room: group_room,
+        sender: user1,
+        receiver: user2,
+        status: InvitationStatus.accepted()
+      )
+
+      insert(:invitation,
+        room: group_room,
+        sender: user1,
+        receiver: user3,
+        status: InvitationStatus.accepted()
+      )
+
       insert(:user_room, user: user1, room: group_room)
       insert(:user_room, user: user2, room: group_room)
       insert(:user_room, user: user3, room: group_room)
 
       dm1_room = insert(:room, type: RoomType.dm())
+
+      insert(:invitation,
+        room: dm1_room,
+        sender: user1,
+        receiver: user2,
+        status: InvitationStatus.accepted()
+      )
+
       insert(:user_room, user: user1, room: dm1_room)
       insert(:user_room, user: user2, room: dm1_room)
 
       dm2_room = insert(:room, type: RoomType.dm())
+
+      insert(:invitation,
+        room: dm2_room,
+        sender: user1,
+        receiver: user3,
+        status: InvitationStatus.accepted()
+      )
+
       insert(:user_room, user: user1, room: dm2_room)
       insert(:user_room, user: user3, room: dm2_room)
 
       dm3_room = insert(:room, type: RoomType.dm())
+
+      insert(:invitation,
+        room: dm3_room,
+        sender: user1,
+        receiver: user4,
+        status: InvitationStatus.accepted()
+      )
+
       insert(:user_room, user: user1, room: dm3_room)
       insert(:user_room, user: user4, room: dm3_room)
 

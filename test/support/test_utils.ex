@@ -54,8 +54,7 @@ defmodule Roomy.TestUtils do
     |> Map.delete(:rooms)
     |> Map.delete(:password)
     |> Map.delete(:messages)
-    |> Map.delete(:sent_invitations)
-    |> Map.delete(:received_invitations)
+    |> Map.delete(:invitations)
     |> Map.delete(:friends)
     |> Map.delete(:tokens)
     |> Map.delete(:inserted_at)
@@ -70,6 +69,7 @@ defmodule Roomy.TestUtils do
     |> Map.delete(:updated_at)
     |> Map.delete(:users)
     |> Map.delete(:messages)
+    |> Map.delete(:invitation)
   end
 
   def strip_unnecessary_fields(%Invitation{} = entry) do
@@ -94,6 +94,7 @@ defmodule Roomy.TestUtils do
           |> Map.delete(:updated_at)
           |> Map.delete(:users)
           |> Map.delete(:messages)
+          |> Map.delete(:invitation)
     }
   end
 end

@@ -46,14 +46,10 @@ defmodule Roomy.Models.InvitationTest do
     {:ok, %Invitation{}} = Account.answer_invitation(invitation_id, true)
 
     {:error, %Ecto.Changeset{errors: errors}} =
-      Invitation.update(%Invitation.Update{
-        id: invitation_id,
-        status: InvitationStatus.pending()
-      })
+      Invitation.update(invitation_id, %{status: InvitationStatus.pending()})
 
     assert errors[:status] ==
-             {"cannot_be_pending",
-              [error: "Status can only be changed to 'accepted' or 'rejected'."]}
+             {"is invalid", [{:validation, :inclusion}, {:enum, ["accepted", "rejected"]}]}
   end
 
   test "User should have Invitations equal to the number of requests sent to him", %{

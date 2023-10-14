@@ -1,12 +1,9 @@
 defmodule Roomy.Models.UserFriend do
   @moduledoc false
 
-  use Ecto.Schema
+  use Roomy.EctoModel
   use TypedStruct
 
-  import Ecto.Changeset
-
-  alias Roomy.Repo
   alias Roomy.Models.User
 
   @type t :: %__MODULE__{
@@ -33,9 +30,9 @@ defmodule Roomy.Models.UserFriend do
     field(:user2_id, pos_integer())
   end
 
-  def changeset(%__MODULE__.New{} = attrs) do
-    %__MODULE__{}
-    |> cast(Map.from_struct(attrs), @allowed_fields)
+  def create_changeset(%__MODULE__{} = struct, attrs) do
+    struct
+    |> cast(attrs, @allowed_fields)
     |> validate_required(@allowed_fields)
     |> Ecto.Changeset.unique_constraint(
       [:user1_id, :user2_id],
@@ -47,19 +44,8 @@ defmodule Roomy.Models.UserFriend do
     )
   end
 
-  def create(%__MODULE__.New{} = attrs) do
-    attrs
-    |> changeset()
-    |> Repo.insert()
-  end
-
-  @spec get(pos_integer(), pos_integer()) :: {:ok, __MODULE__.t()} | {:error, :not_found}
-  def get(user1_id, user2_id) do
-    __MODULE__
-    |> Repo.get_by(user1_id: user1_id, user2_id: user2_id)
-    |> case do
-      %__MODULE__{} = data -> {:ok, data}
-      nil -> {:error, :not_found}
-    end
+  def update_changeset(%__MODULE__{} = struct, attrs) do
+    struct
+    |> cast(attrs, @allowed_fields)
   end
 end

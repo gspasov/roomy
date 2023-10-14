@@ -1,13 +1,9 @@
 defmodule Roomy.Models.Message do
   @moduledoc false
 
-  use Ecto.Schema
+  use Roomy.EctoModel
   use TypedStruct
 
-  import Ecto.Changeset
-  import Ecto.Query
-
-  alias Roomy.Repo
   alias Roomy.Models.Room
   alias Roomy.Models.User
   alias Roomy.Models.UserMessage
@@ -79,18 +75,17 @@ defmodule Roomy.Models.Message do
     field(:reader_id, pos_integer())
     field(:room_id, pos_integer())
     field(:seen, boolean(), default: false)
-    field(:deleted, boolean(), default: false)
   end
 
-  def changeset(%__MODULE__{} = message, %__MODULE__.New{} = attrs) do
+  def create_changeset(%__MODULE__{} = message, attrs) do
     message
-    |> cast(Map.from_struct(attrs), @allowed_fields)
+    |> cast(attrs, @allowed_fields)
     |> validate_required(@required_fields)
   end
 
-  def edit_changeset(%__MODULE__{} = message, %__MODULE__.Edit{} = attrs) do
+  def update_changeset(%__MODULE__{} = message, attrs) do
     message
-    |> cast(Map.from_struct(attrs), @allowed_edit_fields)
+    |> cast(attrs, @allowed_edit_fields)
     |> put_change(:edited, true)
     |> validate_required(@required_edit_fields)
   end
@@ -99,103 +94,28 @@ defmodule Roomy.Models.Message do
     message
     |> cast(%{}, @required_delete_fields)
     |> put_change(:deleted, true)
-    |> put_change(:content, "Deleted message")
+    |> put_change(:content, "[system] Deleted message")
     |> validate_required(@required_delete_fields)
   end
 
-  @spec create(__MODULE__.New.t()) ::
-          {:ok, Ecto.Schema.t()} | {:error, Ecto.Changeset.t()}
-  def create(%__MODULE__.New{} = attrs) do
-    %__MODULE__{}
-    |> changeset(attrs)
-    |> Repo.insert()
-  end
-
-  @spec edit(__MODULE__.Edit.t()) ::
-          {:ok, Ecto.Schema.t()} | {:error, Ecto.Changeset.t()}
-  def edit(%__MODULE__.Edit{id: id} = attrs) do
-    Repo.tx(fn ->
-      with {:ok, %__MODULE__{} = message} <- get(id),
-           {:ok, %__MODULE__{}} = result <-
-             message
-             |> edit_changeset(attrs)
-             |> Repo.update() do
-        result
-      else
-        error -> Repo.rollback(error)
-      end
-    end)
-  end
-
-  @spec get(pos_integer(), Keyword.t()) ::
-          {:ok, __MODULE__.t()} | {:error, :not_found}
-  def get(id, preloads \\ []) when is_number(id) do
-    get_by([id: id], preloads)
-  end
-
-  @spec get_by(Keyword.t(), Keyword.t()) ::
-          {:ok, __MODULE__.t()} | {:error, :not_found}
-  def get_by(opts, preloads \\ []) do
-    __MODULE__
-    |> Repo.get_by(opts)
-    |> Repo.preload(preloads)
-    |> case do
-      nil -> {:error, :not_found}
-      entry -> {:ok, entry}
+  @spec mark_deleted(pos_integer()) ::
+          {:ok, Roomy.Models.Message.t()} | {:error, :not_found | Ecto.Changeset.t()}
+  def mark_deleted(id) when is_integer(id) do
+    with {:ok, %__MODULE__{} = message} <- get(id),
+         {:ok, %__MODULE__{}} = result <- update(delete_changeset(message)) do
+      result
     end
   end
 
-  @spec delete(pos_integer()) ::
-          {:ok, __MODULE__.t()} | {:error, Ecto.Changeset.t(__MODULE__.t())}
-  def delete(id) do
-    Repo.tx(fn ->
-      with {:ok, %__MODULE__{} = message} <- get(id),
-           {:ok, %__MODULE__{}} = result <-
-             Repo.update(delete_changeset(message)) do
-        result
-      else
-        error -> Repo.rollback(error)
-      end
-    end)
-  end
-
   @spec all_unread(__MODULE__.Where.t()) :: [__MODULE__.t()]
-  def all_unread(%__MODULE__.Where{} = filters) do
-    from(message in __MODULE__,
-      as: :message,
-      join: user_message in assoc(message, :users_messages),
-      as: :user_message,
-      where: ^dynamic_where(filters),
-      select: message
+  def all_unread(
+        %__MODULE__.Where{room_id: room_id, reader_id: reader_id, seen: seen},
+        preloads \\ @default_preloads
+      ) do
+    all_by(
+      filter: [room_id: room_id, users_messages: [seen: seen, user_id: reader_id]],
+      preloads: preloads
     )
-    |> Repo.all()
-  end
-
-  defp dynamic_where(%__MODULE__.Where{} = where_filter) do
-    where_filter
-    |> Map.from_struct()
-    |> Enum.reduce(dynamic(true), fn
-      {:room_id, room_id}, dynamic ->
-        dynamic([message: message], ^dynamic and message.room_id == ^room_id)
-
-      {:deleted, deleted}, dynamic ->
-        dynamic([message: message], ^dynamic and message.deleted == ^deleted)
-
-      {:reader_id, reader_id}, dynamic ->
-        dynamic(
-          [user_message: user_message],
-          ^dynamic and user_message.user_id == ^reader_id
-        )
-
-      {:seen, seen}, dynamic ->
-        dynamic(
-          [user_message: user_message],
-          ^dynamic and user_message.seen == ^seen
-        )
-
-      _, dynamic ->
-        dynamic
-    end)
   end
 
   @spec paginate(__MODULE__.Paginate.t()) :: Scrivener.Page.t()

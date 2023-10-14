@@ -186,7 +186,7 @@ defmodule Roomy.MessageTest do
 
     assert strip_unnecessary_fields(message) == %{
              id: message_id,
-             content: "Deleted message",
+             content: "[system] Deleted message",
              room_id: room.id,
              sender_id: user1.id,
              edited: false,

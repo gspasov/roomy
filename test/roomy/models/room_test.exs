@@ -58,14 +58,14 @@ defmodule Roomy.Models.RoomTest do
                })
 
       Enum.each([user2, user3, user4], fn %User{id: user_id} ->
-        {:ok, %User{received_invitations: [invitation]}} =
-          User.get(user_id, received_invitations: :room)
+        {:ok, %User{invitations: [invitation]}} = User.get(user_id, invitations: :room)
 
         assert strip_unnecessary_fields(invitation) == %{
                  room_id: room_id,
                  sender_id: user1.id,
                  message: invitation_message,
                  status: InvitationStatus.pending(),
+                 seen: false,
                  room: %{
                    id: room_id,
                    name: room_name,
@@ -108,19 +108,19 @@ defmodule Roomy.Models.RoomTest do
       {:ok, %Invitation{} = fr_request1} =
         Account.send_friend_request(%Request.SendFriendRequest{
           sender_id: user1.id,
-          receiver_id: user2.username
+          receiver_id: user2.id
         })
 
       {:ok, %Invitation{} = fr_request2} =
         Account.send_friend_request(%Request.SendFriendRequest{
           sender_id: user1.id,
-          receiver_id: user3.username
+          receiver_id: user3.id
         })
 
       {:ok, %Invitation{} = fr_request3} =
         Account.send_friend_request(%Request.SendFriendRequest{
           sender_id: user1.id,
-          receiver_id: user4.username
+          receiver_id: user4.id
         })
 
       {:ok, _} = Account.answer_invitation(fr_request1.id, true)
@@ -184,13 +184,13 @@ defmodule Roomy.Models.RoomTest do
       {:ok, %Invitation{} = fr_request1} =
         Account.send_friend_request(%Request.SendFriendRequest{
           sender_id: user1.id,
-          receiver_id: user2.username
+          receiver_id: user2.id
         })
 
       {:ok, %Invitation{} = fr_request2} =
         Account.send_friend_request(%Request.SendFriendRequest{
           sender_id: user1.id,
-          receiver_id: user3.username
+          receiver_id: user3.id
         })
 
       {:ok, _} = Account.answer_invitation(fr_request1.id, true)
@@ -222,14 +222,14 @@ defmodule Roomy.Models.RoomTest do
 
       # Non-Friends of the Sender should receive invitation to join the Group
       Enum.each([user4], fn %User{id: user_id} ->
-        {:ok, %User{received_invitations: [invitation]}} =
-          User.get(user_id, received_invitations: :room)
+        {:ok, %User{invitations: [invitation]}} = User.get(user_id, invitations: :room)
 
         assert strip_unnecessary_fields(invitation) == %{
                  room_id: room_id,
                  sender_id: user1.id,
                  message: invitation_message,
                  status: InvitationStatus.pending(),
+                 seen: false,
                  room: %{
                    id: room_id,
                    name: room_name,
@@ -268,8 +268,8 @@ defmodule Roomy.Models.RoomTest do
                  participants_usernames: [user2.username]
                })
 
-      {:ok, %User{received_invitations: [%Invitation{id: invitation_id}]}} =
-        User.get(user2.id, received_invitations: :room)
+      {:ok, %User{invitations: [%Invitation{id: invitation_id}]}} =
+        User.get(user2.id, invitations: :room)
 
       {:ok, %Invitation{}} = Account.answer_invitation(invitation_id, true)
 
@@ -315,8 +315,8 @@ defmodule Roomy.Models.RoomTest do
                  participants_usernames: [user2.username]
                })
 
-      {:ok, %User{received_invitations: [%Invitation{id: invitation_id}]}} =
-        User.get(user2.id, received_invitations: :room)
+      {:ok, %User{invitations: [%Invitation{id: invitation_id}]}} =
+        User.get(user2.id, invitations: :room)
 
       {:ok, %Invitation{}} = Account.answer_invitation(invitation_id, true)
 

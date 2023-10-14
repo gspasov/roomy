@@ -8,9 +8,11 @@ defmodule Roomy.Factory do
   alias Roomy.Models.UserToken
   alias Roomy.Models.Message
   alias Roomy.Models.UserMessage
+  alias Roomy.Models.Invitation
 
   require Roomy.Constants.RoomType, as: RoomType
   require Roomy.Constants.MessageType, as: MessageType
+  require Roomy.Constants.InvitationStatus, as: InvitationStatus
 
   def user_factory do
     password = build(:password)
@@ -45,6 +47,20 @@ defmodule Roomy.Factory do
     %UserFriend{
       user1: build(:user),
       user2: build(:user)
+    }
+  end
+
+  def invitation_factory do
+    %Invitation{
+      room: build(:room),
+      message: sequence("invitation_message"),
+      seen: false,
+      status:
+        sequence(:status, [
+          InvitationStatus.pending(),
+          InvitationStatus.accepted(),
+          InvitationStatus.rejected()
+        ])
     }
   end
 

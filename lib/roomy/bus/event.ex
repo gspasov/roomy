@@ -23,7 +23,12 @@ defmodule Roomy.Bus.Event do
   end
 
   typedstruct module: FriendInvitationRequest do
-    field(:user_id, pos_integer())
+    field(:receiver_id, pos_integer())
+    field(:sender_id, pos_integer())
+  end
+
+  typedstruct module: FriendInvitationAnswer do
+    field(:receiver_id, pos_integer())
     field(:sender_id, pos_integer())
   end
 
@@ -39,8 +44,13 @@ defmodule Roomy.Bus.Event do
   end
 
   @spec invitation_request(event :: Event.FriendInvitationRequest.t()) :: :ok
-  def invitation_request(%Event.FriendInvitationRequest{user_id: user_id} = e) do
-    Bus.publish(Topic.invitation_request(user_id), e)
+  def invitation_request(%Event.FriendInvitationRequest{receiver_id: receiver_id} = e) do
+    Bus.publish(Topic.invitation(receiver_id), e)
+  end
+
+  @spec invitation_answer(event :: Event.FriendInvitationAnswer.t()) :: :ok
+  def invitation_answer(%Event.FriendInvitationAnswer{receiver_id: receiver_id} = e) do
+    Bus.publish(Topic.invitation(receiver_id), e)
   end
 
   @spec send_message(message :: Message.t()) :: :ok

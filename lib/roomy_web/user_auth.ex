@@ -152,7 +152,7 @@ defmodule RoomyWeb.UserAuth do
     socket =
       socket
       |> mount_current_user(session)
-      |> Phoenix.Component.assign(timezone: Map.get(socket.private.connect_params, "timezone"))
+      |> Phoenix.Component.assign(timezone: socket.private[:connect_params]["timezone"])
 
     if socket.assigns.current_user do
       {:cont, socket}

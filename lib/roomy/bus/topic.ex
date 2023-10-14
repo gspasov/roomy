@@ -24,8 +24,8 @@ defmodule Roomy.Bus.Topic do
     end
   end
 
-  @spec invitation_request(user_id :: pos_integer()) :: Macro.t()
-  defmacro invitation_request(user_id) do
+  @spec invitation(user_id :: pos_integer()) :: Macro.t()
+  defmacro invitation(user_id) do
     quote do
       "roomy/user/#{unquote(user_id)}/invitation"
     end

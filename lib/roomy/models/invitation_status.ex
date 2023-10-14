@@ -1,12 +1,14 @@
 defmodule Roomy.Models.InvitationStatus do
   @moduledoc false
 
-  use Ecto.Schema
+  use Roomy.EctoModel
   use TypedStruct
 
-  alias Roomy.Repo
-
-  import Ecto.Changeset
+  @type t :: %__MODULE__{
+          name: String.t(),
+          inserted_at: DateTime.t(),
+          updated_at: DateTime.t()
+        }
 
   @allowed_fields [:name]
 
@@ -21,15 +23,14 @@ defmodule Roomy.Models.InvitationStatus do
     field(:name, String.t())
   end
 
-  def changeset(%__MODULE__{} = invitation_status, %__MODULE__.New{} = attrs) do
-    invitation_status
-    |> cast(Map.from_struct(attrs), @allowed_fields)
+  def create_changeset(%__MODULE__{} = struct, attrs) do
+    struct
+    |> cast(attrs, @allowed_fields)
     |> validate_required(@allowed_fields)
   end
 
-  def create(%__MODULE__.New{} = attrs) do
-    %__MODULE__{}
-    |> changeset(attrs)
-    |> Repo.insert()
+  def update_changeset(%__MODULE__{} = struct, attrs) do
+    struct
+    |> cast(attrs, @allowed_fields)
   end
 end

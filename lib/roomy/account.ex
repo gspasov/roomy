@@ -64,7 +64,7 @@ defmodule Roomy.Account do
   def get_user_invitations(user_id) when is_integer(user_id) do
     Invitation.all_by(
       filter: [receiver_id: user_id, status: InvitationStatus.pending()],
-      order_by: [desc: :inserted_at]
+      order_by: {:desc, :inserted_at}
     )
   end
 
@@ -79,7 +79,7 @@ defmodule Roomy.Account do
   @spec can_send_friend_invitation?(pos_integer(), pos_integer()) :: :ok | {:error, reason}
         when reason: :already_friends | :invitation_already_sent
   def can_send_friend_invitation?(sender_id, receiver_id) do
-    with {:error, :not_found} <- UserFriend.get(sender_id, receiver_id),
+    with {:error, :not_found} <- UserFriend.get_by(user1_id: sender_id, user2_id: receiver_id),
          {:error, :not_found} <-
            Invitation.get_by(
              sender_id: sender_id,
@@ -189,42 +189,29 @@ defmodule Roomy.Account do
         receiver_id: receiver_id,
         invitation_message: message
       }) do
-    room_params =
-      &%Room.New{
-        name: build_room_name(sender_id, &1),
-        type: RoomType.dm()
-      }
-
-    user_room_params =
-      &%UserRoom.New{
-        room_id: &1,
-        user_id: sender_id
-      }
-
-    invitation_params =
-      &%Invitation.New{
-        message: message,
-        sender_id: sender_id,
-        room_id: &1,
-        receiver_id: &2
-      }
-
     Repo.tx(fn ->
       with {:ok, %User{}} <- User.get(receiver_id),
-           {:ok, %Room{id: room_id}} <- Room.create(room_params.(receiver_id)),
-           {:ok, %UserRoom{}} <-
-             UserRoom.add_user_to_room(user_room_params.(room_id)),
+           {:ok, %Room{id: room_id}} <-
+             Room.create(%{name: build_room_name(sender_id, receiver_id), type: RoomType.dm()}),
+           {:ok, %UserRoom{}} <- UserRoom.create(%{room_id: room_id, user_id: sender_id}),
            {:ok, %Invitation{}} = invitation <-
-             Invitation.create(invitation_params.(room_id, receiver_id)) do
+             Invitation.create(%{
+               message: message,
+               sender_id: sender_id,
+               room_id: room_id,
+               receiver_id: receiver_id
+             }) do
         invitation
       else
-        error -> Repo.rollback(error)
+        error ->
+          Logger.error("[#{__MODULE__}] Error sending friend request with #{inspect(error)}")
+          Repo.rollback(error)
       end
     end)
     |> tap(fn
       {:ok, _} ->
         Bus.Event.invitation_request(%Bus.Event.FriendInvitationRequest{
-          user_id: receiver_id,
+          receiver_id: receiver_id,
           sender_id: sender_id
         })
 
@@ -235,10 +222,10 @@ defmodule Roomy.Account do
 
   @spec list_invitations(user_id: pos_integer()) :: [Invitation.t()]
   def list_invitations(user_id) do
-    Invitation.all_by(receiver_id: user_id)
+    Invitation.all_by(filter: [receiver_id: user_id])
   end
 
-  @spec answer_invitation(request_id :: pos_integer(), is_accepted :: boolean()) ::
+  @spec answer_invitation(invitation_id :: pos_integer(), is_accepted :: boolean()) ::
           {:ok, Invitation.t()} | {:error, Ecto.Changeset.t()}
   def answer_invitation(invitation_id, accepted?) do
     status =
@@ -257,18 +244,32 @@ defmodule Roomy.Account do
               room: %Room{id: room_id, type: room_type}
             }} <- Invitation.get(invitation_id, [:room, :receiver]),
            {:ok, %Invitation{}} = invitation <-
-             Invitation.update(%Invitation.Update{
-               id: invitation_id,
-               status: status
-             }),
+             Invitation.update(invitation_id, %{status: status}),
            {:ok, _} <-
              maybe_become_friends(accepted?, room_type, sender_id, receiver_id),
            {:ok, _} <- maybe_join_room(accepted?, receiver_id, room_id),
            {:ok, _} <- maybe_add_system_message(accepted?, room_type, receiver, room_id) do
         invitation
       else
-        error -> Repo.rollback(error)
+        error ->
+          Logger.error("[#{__MODULE__}] Error answering invitation with #{inspect(error)}")
+          Repo.rollback(error)
       end
+    end)
+    |> tap(fn
+      {:ok,
+       %Invitation{
+         status: InvitationStatus.accepted(),
+         sender_id: receiver_id,
+         receiver_id: sender_id
+       }} ->
+        Bus.Event.invitation_answer(%Bus.Event.FriendInvitationAnswer{
+          receiver_id: receiver_id,
+          sender_id: sender_id
+        })
+
+      _ ->
+        nil
     end)
   end
 
@@ -280,29 +281,29 @@ defmodule Roomy.Account do
         sender_id: sender_id,
         sent_at: sent_at
       }) do
-    create_params = %Message.New{
-      content: content,
-      room_id: room_id,
-      sender_id: sender_id,
-      sent_at: sent_at
-    }
-
     receivers = fn users ->
       Enum.map(users, fn %User{id: id} -> id end) -- [sender_id]
     end
 
     Repo.tx(fn ->
-      with {:ok, %Room{users: users}} <- Room.get(room_id, :users),
+      with {:ok, %Room{users: users}} <- Room.get(room_id, [:users]),
            {:ok, %Message{id: message_id} = message} <-
-             Message.create(create_params),
+             Message.create(%Message.New{
+               content: content,
+               room_id: room_id,
+               sender_id: sender_id,
+               sent_at: sent_at
+             }),
            :ok <-
-             UserMessage.create(%UserMessage.Multi{
+             UserMessage.multiple(%UserMessage.Multi{
                user_ids: receivers.(users),
                message_id: message_id
              }) do
         {:ok, message}
       else
-        error -> Repo.rollback(error)
+        error ->
+          Logger.error("[#{__MODULE__}] Error sending message with #{inspect(error)}")
+          Repo.rollback(error)
       end
     end)
     |> tap(fn
@@ -343,19 +344,14 @@ defmodule Roomy.Account do
         content: new_content,
         edited_at: edited_at
       }) do
-    edit_message_params = %Message.Edit{
-      id: message_id,
-      content: new_content,
-      edited_at: edited_at
-    }
-
     Repo.tx(fn ->
-      with [_ | _] = user_messages <- UserMessage.all(message_id),
+      with [_ | _] = user_messages <- UserMessage.all_by(filter: [message: [id: message_id]]),
            :ok <-
              user_messages
              |> message_is_unread_by_everyone()
              |> Utils.check(:message_is_read),
-           {:ok, %Message{}} <- Message.edit(edit_message_params) do
+           {:ok, %Message{}} <-
+             Message.update(message_id, %{content: new_content, edited_at: edited_at}) do
         :ok
       end
     end)
@@ -364,7 +360,7 @@ defmodule Roomy.Account do
   @spec delete_message(pos_integer()) ::
           {:ok, Message.t()} | {:error, Ecto.Changeset.t(Message.t())}
   def delete_message(message_id) do
-    Message.delete(message_id)
+    Message.mark_deleted(message_id)
   end
 
   @spec create_group_chat(Request.CreateGroupChat.t()) ::
@@ -377,11 +373,6 @@ defmodule Roomy.Account do
           participants_usernames: participants_usernames
         } = request
       ) do
-    room_params = %Room.New{
-      name: group_name,
-      type: RoomType.group()
-    }
-
     find_participants = fn usernames ->
       Enum.reduce_while(usernames, {:ok, []}, fn username, {:ok, users} ->
         case User.get_by(username: username) do
@@ -405,18 +396,14 @@ defmodule Roomy.Account do
 
     add_users_to_room = fn users, room_id ->
       Enum.each(users, fn %User{id: user_id} ->
-        {:ok, %UserRoom{}} =
-          UserRoom.add_user_to_room(%UserRoom.New{
-            room_id: room_id,
-            user_id: user_id
-          })
+        {:ok, %UserRoom{}} = UserRoom.create(%{room_id: room_id, user_id: user_id})
       end)
     end
 
     create_invitations = fn users, room_id ->
       Enum.each(users, fn %User{id: user_id} ->
         {:ok, %Invitation{}} =
-          Invitation.create(%Invitation.New{
+          Invitation.create(%{
             message: message,
             sender_id: sender_id,
             room_id: room_id,
@@ -428,16 +415,16 @@ defmodule Roomy.Account do
     Repo.tx(fn ->
       with {:ok, participants} <- find_participants.(participants_usernames),
            {:ok, %User{} = sender} <- User.get(sender_id, [:friends]),
-           {:ok, %Room{id: room_id}} = room <- Room.create(room_params),
-           {sender_friends, invited_users} <-
-             filter_participants.(sender, participants),
+           {:ok, %Room{id: room_id}} = room <-
+             Room.create(%{name: group_name, type: RoomType.group()}),
+           {sender_friends, invited_users} <- filter_participants.(sender, participants),
            :ok <- add_users_to_room.([sender | sender_friends], room_id),
            :ok <- create_invitations.(invited_users, room_id) do
         room
       else
         {:error, reason} = error ->
           Logger.error(
-            "Failed to create group chat for #{inspect(request)} with #{inspect(reason)}"
+            "[#{__MODULE__}] Failed to create group chat for #{inspect(request)} with #{inspect(reason)}"
           )
 
           Repo.rollback(error)
@@ -448,25 +435,25 @@ defmodule Roomy.Account do
   @spec leave_room(Request.LeaveRoom.t()) ::
           {:ok, UserRoom.t()} | {:error, Ecto.Changeset.t(any())}
   def leave_room(%Request.LeaveRoom{user_id: user_id, room_id: room_id} = request) do
-    user_room_params = %UserRoom.New{user_id: user_id, room_id: room_id}
-
-    system_message_params =
-      &%Message.New{
-        content: "User #{&1} has left the group",
-        room_id: room_id,
-        type: MessageType.system_group_leave(),
-        sent_at: DateTime.utc_now()
-      }
-
     Repo.tx(fn ->
       with {:ok, %Room{type: RoomType.group()}} <- Room.get(room_id),
-           {:ok, %UserRoom{}} = user_room <- UserRoom.delete(user_room_params),
+           {:ok, %UserRoom{}} = user_room <-
+             UserRoom.delete_by(user_id: user_id, room_id: room_id),
            {:ok, %User{display_name: name}} <- User.get(user_id),
-           {:ok, %Message{}} <- Message.create(system_message_params.(name)) do
+           {:ok, %Message{}} <-
+             Message.create(%Message.New{
+               content: "User #{name} has left the group",
+               room_id: room_id,
+               type: MessageType.system_group_leave(),
+               sent_at: DateTime.utc_now()
+             }) do
         user_room
       else
         {:error, reason} = error ->
-          Logger.error("Failed to leave room for #{inspect(request)} with #{inspect(reason)}")
+          Logger.error(
+            "[#{__MODULE__}] Failed to leave room for #{inspect(request)} with #{inspect(reason)}"
+          )
+
           Repo.rollback(error)
       end
     end)
@@ -506,12 +493,7 @@ defmodule Roomy.Account do
   defp maybe_join_room(accepted?, receiver_id, room_id)
 
   defp maybe_join_room(true, receiver_id, room_id) do
-    params = %UserRoom.New{
-      user_id: receiver_id,
-      room_id: room_id
-    }
-
-    with {:ok, %UserRoom{}} <- UserRoom.add_user_to_room(params) do
+    with {:ok, %UserRoom{}} <- UserRoom.create(%{user_id: receiver_id, room_id: room_id}) do
       {:ok, nil}
     end
   end

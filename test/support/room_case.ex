@@ -39,7 +39,7 @@ defmodule Roomy.RoomCase do
     %Invitation{id: invitation_id} =
       TestUtils.send_friend_request(
         user1.id,
-        user2.username,
+        user2.id,
         "It's a me, Mario!"
       )
 
