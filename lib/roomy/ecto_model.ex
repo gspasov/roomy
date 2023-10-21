@@ -70,7 +70,7 @@ defmodule Roomy.EctoModel do
       def create(attrs, preloads) when is_struct(attrs) do
         attrs
         |> Map.from_struct()
-        |> __MODULE__.create()
+        |> __MODULE__.create(preloads)
       end
 
       def create(attrs, preloads) do
