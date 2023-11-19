@@ -3,20 +3,6 @@ defmodule RoomyWeb.Components.ContextMenu do
 
   alias RoomyWeb.Components.Core
 
-  def render(assigns) do
-    ~H"""
-    <div class="flex w-full px-2 select-none bg-navigation">
-      <.menu id={1} title="Menu">
-        <:item title="Chat" href={~p"/"} />
-        <:item title="Friends" href={~p"/users/friends"} />
-        <:item title="Settings" href={~p"/users/settings"} />
-        <:item border={true} />
-        <:item title="Logout" href={~p"/users/log_out"} method="delete" />
-      </.menu>
-    </div>
-    """
-  end
-
   attr(:id, :integer, required: true)
   attr(:title, :string, required: true)
 

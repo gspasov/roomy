@@ -22,14 +22,21 @@ defmodule Roomy.Bus.Event do
     field(:display_name, String.t())
   end
 
+  typedstruct module: SubscribeTo do
+    field(:topic, String.t())
+    field(:user_id, pos_integer())
+  end
+
   typedstruct module: FriendInvitationRequest do
     field(:receiver_id, pos_integer())
     field(:sender_id, pos_integer())
+    field(:invitation_id, pos_integer())
   end
 
-  typedstruct module: FriendInvitationAnswer do
+  typedstruct module: FriendInvitationResponse do
     field(:receiver_id, pos_integer())
     field(:sender_id, pos_integer())
+    field(:invitation_id, pos_integer())
   end
 
   @spec new_user_join(event :: UserJoin.t()) :: :ok
@@ -44,17 +51,32 @@ defmodule Roomy.Bus.Event do
   end
 
   @spec invitation_request(event :: Event.FriendInvitationRequest.t()) :: :ok
-  def invitation_request(%Event.FriendInvitationRequest{receiver_id: receiver_id} = e) do
-    Bus.publish(Topic.invitation(receiver_id), e)
+  def invitation_request(
+        %Event.FriendInvitationRequest{
+          receiver_id: receiver_id,
+          invitation_id: invitation_id
+        } = e
+      ) do
+    Bus.publish(Topic.invitation_request(receiver_id, invitation_id), e)
   end
 
-  @spec invitation_answer(event :: Event.FriendInvitationAnswer.t()) :: :ok
-  def invitation_answer(%Event.FriendInvitationAnswer{receiver_id: receiver_id} = e) do
-    Bus.publish(Topic.invitation(receiver_id), e)
+  @spec invitation_response(event :: Event.FriendInvitationResponse.t()) :: :ok
+  def invitation_response(
+        %Event.FriendInvitationResponse{
+          receiver_id: receiver_id,
+          invitation_id: invitation_id
+        } = e
+      ) do
+    Bus.publish(Topic.invitation_response(receiver_id, invitation_id), e)
   end
 
   @spec send_message(message :: Message.t()) :: :ok
   def send_message(%Message{room_id: room_id} = e) do
     Bus.publish(Topic.room(room_id), e)
+  end
+
+  @spec subscribe_to(event :: SubscribeTo.t()) :: :ok
+  def subscribe_to(%SubscribeTo{user_id: user_id} = e) do
+    Bus.publish(Topic.user(user_id), e)
   end
 end

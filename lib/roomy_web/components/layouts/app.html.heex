@@ -1,9 +1,7 @@
 <main class="flex flex-col h-screen">
-  <%= if @current_user do %>
-    <div class="flex-none">
-      <RoomyWeb.Components.ContextMenu.render />
-    </div>
-  <% end %>
+  <div :if={@current_user} class="flex-none">
+    <RoomyWeb.Components.AppBar.render user={@current_user} />
+  </div>
   <div class="bg-default_background grow overflow-hidden">
     <.flash_group flash={@flash} />
     <%= @inner_content %>

@@ -134,14 +134,6 @@ defmodule RoomyWeb.HomeLive do
           {nil, nil}
       end
 
-    Enum.each(rooms, fn {room_id, _} ->
-      room_id
-      |> Bus.Topic.room()
-      |> Bus.subscribe()
-    end)
-
-    Bus.subscribe(Bus.Topic.system())
-
     new_socket =
       assign(socket,
         rooms: rooms,
@@ -154,22 +146,42 @@ defmodule RoomyWeb.HomeLive do
   end
 
   @impl true
-  def handle_event(
-        "select_room",
-        %{"room_id" => id},
-        %{assigns: %{current_user: %User{id: user_id}}} = socket
+  def handle_params(
+        %{"room" => id} = _params,
+        _session,
+        %{assigns: %{rooms: rooms, current_user: %User{id: user_id}}} = socket
       ) do
+    available_room_ids = Enum.map(rooms, &elem(&1, 0))
     {room_id, ""} = Integer.parse(id)
-    Account.mark_room_messages_as_read(user_id, room_id)
-    chat_history = Message.paginate(%Message.Paginate{room_id: room_id})
-    rooms = Account.get_user_chat_rooms(user_id)
 
     new_socket =
-      socket
-      |> assign(current_room: Map.get(rooms, room_id), chat_history: chat_history, rooms: rooms)
-      |> push_event("focus_element", %{id: "message_box"})
+      if room_id in available_room_ids do
+        Account.mark_room_messages_as_read(user_id, room_id)
+        chat_history = Message.paginate(%Message.Paginate{room_id: room_id})
+        rooms = Account.get_user_chat_rooms(user_id)
+
+        socket
+        |> assign(
+          current_room: Map.get(rooms, room_id),
+          chat_history: chat_history,
+          rooms: rooms
+        )
+        |> push_event("focus_element", %{id: "message_box"})
+      else
+        socket
+      end
 
     {:noreply, new_socket}
+  end
+
+  @impl true
+  def handle_params(_params, _session, socket) do
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_event("select_room", %{"room_id" => id}, socket) do
+    {:noreply, push_patch(socket, to: ~p"/?#{%{room: id}}")}
   end
 
   @impl true
@@ -184,15 +196,22 @@ defmodule RoomyWeb.HomeLive do
           }
         } = socket
       ) do
-    {:ok, %Message{}} =
-      Account.send_message(%Request.SendMessage{
-        content: content,
-        sender_id: user_id,
-        room_id: room_id,
-        sent_at: DateTime.utc_now()
-      })
+    trimmed_content = String.trim(content)
 
-    new_socket = assign(socket, message_box: Map.put(message_box, room_id, ""))
+    new_socket =
+      if byte_size(trimmed_content) > 0 do
+        {:ok, %Message{}} =
+          Account.send_message(%Request.SendMessage{
+            content: trimmed_content,
+            sender_id: user_id,
+            room_id: room_id,
+            sent_at: DateTime.utc_now()
+          })
+
+        assign(socket, message_box: Map.put(message_box, room_id, ""))
+      else
+        socket
+      end
 
     {:noreply, new_socket}
   end
@@ -263,15 +282,18 @@ defmodule RoomyWeb.HomeLive do
   end
 
   @impl true
-  def handle_info({Roomy.Bus, %Bus.Event.UserJoin{display_name: name}}, socket) do
-    new_socket =
-      put_flash(
-        socket,
-        :info,
-        "New user by the name of '#{name}' has joined Roomy!"
-      )
+  def handle_info(
+        {Roomy.Bus, %Bus.Event.FriendInvitationResponse{}},
+        %{assigns: %{current_user: %User{id: user_id}}} = socket
+      ) do
+    new_socket = assign(socket, rooms: Account.get_user_chat_rooms(user_id))
 
     {:noreply, new_socket}
+  end
+
+  @impl true
+  def handle_info({Roomy.Bus, _unhandled_message}, socket) do
+    {:noreply, socket}
   end
 
   @spec get_last_message([Message.t()], pos_integer()) :: String.t()

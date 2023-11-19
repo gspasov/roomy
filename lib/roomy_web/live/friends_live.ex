@@ -216,8 +216,6 @@ defmodule RoomyWeb.FriendsLive do
 
   @impl true
   def mount(_params, _session, %{assigns: %{current_user: %User{id: user_id}}} = socket) do
-    Bus.subscribe(Bus.Topic.invitation(user_id))
-
     new_socket =
       assign(socket,
         friend_box: "",
@@ -373,32 +371,25 @@ defmodule RoomyWeb.FriendsLive do
 
   @impl true
   def handle_info(
-        {Bus, %Bus.Event.FriendInvitationRequest{sender_id: sender_id}},
+        {Bus, %Bus.Event.FriendInvitationRequest{}},
         %{assigns: %{current_user: %User{id: user_id}}} = socket
       ) do
-    {:ok, %User{display_name: name}} = User.get(sender_id, [])
-
-    new_socket =
-      socket
-      |> put_flash(:info, "#{name} sent you a friend request!")
-      |> assign(invitations: Account.get_user_invitations(user_id))
-
+    new_socket = assign(socket, invitations: Account.get_user_invitations(user_id))
     {:noreply, new_socket}
   end
 
   @impl true
   def handle_info(
-        {Bus, %Bus.Event.FriendInvitationAnswer{sender_id: sender_id}},
+        {Bus, %Bus.Event.FriendInvitationResponse{}},
         %{assigns: %{current_user: %User{id: user_id}}} = socket
       ) do
-    {:ok, %User{display_name: name}} = User.get(sender_id, [])
-
-    new_socket =
-      socket
-      |> put_flash(:info, "#{name} accepted your friend request! Now you can chat together.")
-      |> assign(friends: Account.get_user_friends(user_id))
-
+    new_socket = assign(socket, friends: Account.get_user_friends(user_id))
     {:noreply, new_socket}
+  end
+
+  @impl true
+  def handle_info({Roomy.Bus, _unhandled_message}, socket) do
+    {:noreply, socket}
   end
 
   defp dialog_invite_answer, do: "dialog_invite_answer"

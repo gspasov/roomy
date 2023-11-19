@@ -24,6 +24,7 @@ defmodule Roomy.Account do
   require RoomType
   require MessageType
   require Logger
+  require Bus.Topic
 
   @spec register_user(map()) :: {:ok, User.t()} | {:error, Ecto.Changeset.t()}
   def register_user(register_params) do
@@ -209,10 +210,11 @@ defmodule Roomy.Account do
       end
     end)
     |> tap(fn
-      {:ok, _} ->
+      {:ok, %Invitation{id: id}} ->
         Bus.Event.invitation_request(%Bus.Event.FriendInvitationRequest{
-          receiver_id: receiver_id,
-          sender_id: sender_id
+          invitation_id: id,
+          sender_id: sender_id,
+          receiver_id: receiver_id
         })
 
       _ ->
@@ -259,13 +261,23 @@ defmodule Roomy.Account do
     |> tap(fn
       {:ok,
        %Invitation{
+         id: id,
          status: InvitationStatus.accepted(),
-         sender_id: receiver_id,
-         receiver_id: sender_id
+         sender_id: sender_id,
+         receiver_id: receiver_id,
+         room_id: room_id
        }} ->
-        Bus.Event.invitation_answer(%Bus.Event.FriendInvitationAnswer{
-          receiver_id: receiver_id,
-          sender_id: sender_id
+        # Notify the sender of the Invitation if it was accepted
+        Bus.Event.invitation_response(%Bus.Event.FriendInvitationResponse{
+          invitation_id: id,
+          sender_id: receiver_id,
+          receiver_id: sender_id
+        })
+
+        # Make the receiver subscribe to this room
+        Bus.Event.subscribe_to(%Bus.Event.SubscribeTo{
+          user_id: receiver_id,
+          topic: Bus.Topic.room(room_id)
         })
 
       _ ->
@@ -288,12 +300,15 @@ defmodule Roomy.Account do
     Repo.tx(fn ->
       with {:ok, %Room{users: users}} <- Room.get(room_id, [:users]),
            {:ok, %Message{id: message_id} = message} <-
-             Message.create(%Message.New{
-               content: content,
-               room_id: room_id,
-               sender_id: sender_id,
-               sent_at: sent_at
-             }),
+             Message.create(
+               %Message.New{
+                 content: content,
+                 room_id: room_id,
+                 sender_id: sender_id,
+                 sent_at: sent_at
+               },
+               [:room, :sender]
+             ),
            :ok <-
              UserMessage.multiple(%UserMessage.Multi{
                user_ids: receivers.(users),

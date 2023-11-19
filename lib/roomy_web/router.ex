@@ -65,7 +65,7 @@ defmodule RoomyWeb.Router do
     pipe_through [:browser, :require_authenticated_user]
 
     live_session :require_authenticated_user,
-      on_mount: [{RoomyWeb.UserAuth, :ensure_authenticated}] do
+      on_mount: [{RoomyWeb.UserAuth, :ensure_authenticated}, RoomyWeb.Notifier] do
       live "/", HomeLive, :index
       live "/users/settings", UserSettingsLive, :edit
       live "/users/friends", FriendsLive, :edit
