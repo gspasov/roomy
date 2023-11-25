@@ -56,7 +56,7 @@ defmodule RoomyWeb.Notifier do
   defp maybe_handle_message(
          {Bus,
           %Bus.Event.FriendInvitationResponse{sender_id: sender_id, invitation_id: invitation_id}},
-         %{assigns: %{current_user: %User{id: current_user_id}}} = socket
+         socket
        ) do
     {:ok, %User{display_name: name}} = User.get(sender_id, [])
     {:ok, %Invitation{room_id: room_id}} = Invitation.get(invitation_id, [])
