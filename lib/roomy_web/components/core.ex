@@ -281,6 +281,7 @@ defmodule RoomyWeb.Components.Core do
   attr(:name, :any)
   attr(:label, :string, default: nil)
   attr(:value, :any)
+  attr(:debounce, :integer, default: 1)
 
   attr(:type, :string,
     default: "text",
@@ -316,7 +317,7 @@ defmodule RoomyWeb.Components.Core do
 
     ~H"""
     <div phx-feedback-for={@name}>
-      <label class="flex items-center gap-4 text-sm leading-6 text-zinc-600">
+      <label class="flex items-center gap-4 text-sm leading-6">
         <input type="hidden" name={@name} value="false" />
         <input
           type="checkbox"
@@ -383,12 +384,10 @@ defmodule RoomyWeb.Components.Core do
         name={@name}
         id={@id || @name}
         value={Phoenix.HTML.Form.normalize_value(@type, @value)}
+        phx-debounce={to_string(@debounce)}
         class={[
-          "rounded py-1 px-2 w-full border-zinc-300",
-          "focus:outline-none focus:ring-4 sm:text-sm sm:leading-6",
-          "phx-no-feedback:border-zinc-300 phx-no-feedback:focus:border-zinc-400 phx-no-feedback:focus:ring-zinc-800/5",
-          "focus:border-zinc-400 focus:ring-zinc-800/5",
-          @errors != [] && "border-rose-400 focus:border-rose-400 focus:ring-rose-400/10"
+          "rounded-md py-1 px-4 w-full border-slate-300 h-12 text-sm text-slate-700",
+          "focus:border-indigo-600 focus:ring-0 focus:outline-none focus:caret-indigo-600"
         ]}
         {@rest}
       />
@@ -405,7 +404,7 @@ defmodule RoomyWeb.Components.Core do
 
   def label(assigns) do
     ~H"""
-    <label for={@for} class="block text-sm font-semibold py-0.5 text-white">
+    <label for={@for} class="block text-sm font-semibold pb-1 text-slate-600">
       <%= render_slot(@inner_block) %>
     </label>
     """
@@ -418,8 +417,8 @@ defmodule RoomyWeb.Components.Core do
 
   def error(assigns) do
     ~H"""
-    <p class="flex gap-1 mt-1 text-sm leading-6 text-rose-600 phx-no-feedback:hidden">
-      <.icon name="hero-exclamation-circle-mini" class="mt-0.5 w-5 h-5" />
+    <p class="flex gap-1 mt-1 text-xs items-center leading-6 text-rose-600 phx-no-feedback:hidden">
+      <.icon name="hero-exclamation-circle-mini" class="mt-0.5 w-4 h-4" />
       <%= render_slot(@inner_block) %>
     </p>
     """

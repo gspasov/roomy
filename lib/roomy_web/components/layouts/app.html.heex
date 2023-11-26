@@ -2,7 +2,7 @@
   <div :if={@current_user} class="flex-none">
     <RoomyWeb.Components.AppBar.render user={@current_user} />
   </div>
-  <div class="bg-default_background grow overflow-hidden">
+  <div class="grow overflow-hidden">
     <.flash_group flash={@flash} />
     <%= @inner_content %>
   </div>

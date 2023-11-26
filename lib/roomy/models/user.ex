@@ -7,6 +7,7 @@ defmodule Roomy.Models.User do
   import Ecto.Query
   import Ecto.Changeset
 
+  alias Roomy.Utils
   alias Roomy.Repo
   alias Roomy.Models.Room
   alias Roomy.Models.Invitation
@@ -28,7 +29,6 @@ defmodule Roomy.Models.User do
 
   @session_validity_in_days 60
 
-  @allowed_fields [:username, :display_name, :password]
   @default_preloads []
 
   def default_preloads, do: @default_preloads
@@ -37,6 +37,7 @@ defmodule Roomy.Models.User do
     field(:username, :string)
     field(:display_name, :string)
     field(:password, :string, virtual: true, redact: true)
+    field(:confirm_password, :string, virtual: true, redact: true)
     field(:hashed_password, :string, redact: true)
 
     many_to_many(:rooms, Room, join_through: UserRoom)
@@ -60,9 +61,12 @@ defmodule Roomy.Models.User do
 
   def registration_changeset(%__MODULE__{} = user, attrs, opts \\ []) do
     user
-    |> cast(attrs, @allowed_fields)
+    |> cast(attrs, [:username, :display_name, :password, :confirm_password])
+    |> validate_required([:username, :display_name, :password, :confirm_password])
     |> validate_username(opts)
     |> validate_password(opts)
+    |> validate_passwords_match()
+    |> Utils.parse_changeset_errors()
   end
 
   def password_changeset(%__MODULE__{} = user, attrs, opts \\ []) do
@@ -194,6 +198,14 @@ defmodule Roomy.Models.User do
       |> delete_change(:password)
     else
       changeset
+    end
+  end
+
+  defp validate_passwords_match(changeset) do
+    if fetch_field!(changeset, :password) == fetch_field!(changeset, :confirm_password) do
+      changeset
+    else
+      add_error(changeset, :confirm_password, "should match password")
     end
   end
 end
