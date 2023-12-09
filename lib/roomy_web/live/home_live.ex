@@ -8,6 +8,8 @@ defmodule RoomyWeb.HomeLive do
   alias Roomy.Models.User
   alias Roomy.Models.Room
   alias Roomy.Models.Message
+  alias RoomyWeb.Components.Svg
+  alias RoomyWeb.Components.ContextMenu
   alias WarmFuzzyThing.Maybe
 
   require Bus.Topic
@@ -16,99 +18,149 @@ defmodule RoomyWeb.HomeLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <div class="flex h-full gap-2 px-2 pb-2">
-      <!-- Sidebar -->
-      <fieldset class="border border-gray-200 w-[25%]">
-        <legend class="px-2 text-sm text-center text-nav_text_light font-bold">Rooms</legend>
-        <ul class="px-2">
-          <p :if={map_size(@rooms) === 0} class="text-highlight">You have no chats :(</p>
+    <div class="flex max-h-full">
+      <div class="flex flex-col w-96 border-r">
+        <div class="flex flex-col bg-gray-50 py-4 px-8 gap-3 border-b">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <img src={avatar_src(@current_user.display_name)} class="rounded-full h-10 w-10" />
+              <span class="font-medium text-slate-600"><%= @current_user.display_name %></span>
+            </div>
+
+            <ContextMenu.menu>
+              <button class="flex items-center justify-center hover:bg-slate-200 aspect-square w-10 h-10 rounded-full">
+                <Svg.dots_vertical />
+              </button>
+              <:item title="New Group" href={~p"/"}>
+                <Svg.people_fill class="w-5 h-5" />
+              </:item>
+              <:item title="Friends" href={~p"/users/friends"}>
+                <Svg.search class="w-5 h-5" />
+              </:item>
+              <:item title="Profile" href={~p"/users/settings"}>
+                <Svg.person_circle class="w-5 h-5" />
+              </:item>
+              <:item border={true} />
+              <:item title="Logout" href={~p"/users/log_out"} method="delete">
+                <Svg.box_arrow_right class="w-5 h-5" />
+              </:item>
+            </ContextMenu.menu>
+          </div>
+
+          <form class="relative">
+            <Svg.search class="absolute left-5 top-1/3 text-slate-500" />
+            <input
+              id="search_input"
+              type="text"
+              name="search"
+              value=""
+              placeholder="Search or start new chat"
+              phx-debounce="100"
+              class="w-full rounded-3xl pl-12 pr-4 py-2 border-slate-300 border focus:border-indigo-400"
+            />
+          </form>
+        </div>
+        <ul class="overflow-y-auto">
           <li
             :for={{id, room} <- @rooms}
             key={id}
-            class="cursor-pointer mb-1"
+            class="flex justify-between items-center gap-4 py-5 px-8 border-b hover:bg-blue-50 h-20 cursor-pointer"
             phx-click="select_room"
             phx-value-room_id={id}
           >
-            <div class={"flex flex-col border-2 border-default_background rounded p-2 items-start text-nav_text_light " <> if @current_room && @current_room.id == id, do: "!border-navigation bg-navigation", else: "hover:border-dotted hover:border-navigation"}>
-              <span class={"font-bold " <> if @current_room && @current_room.id == id, do: "text-highlight", else: ""}>
+            <div class="relative">
+              <img
+                src={avatar_src(get_room_name(room, @current_user.id))}
+                class="rounded-full h-10 w-10"
+              />
+              <%!-- @TODO: Add condition to show the dot --%>
+              <span class="absolute bg-indigo-600 rounded-full h-3 w-3 border-[3px] border-white right-0 bottom-[-2px]" />
+            </div>
+            <div class="flex flex-col w-36 grow">
+              <span class="font-medium text-slate-600">
                 <%= get_room_name(room, @current_user.id) %>
               </span>
-              <div class={"text-sm max-w-full font-normal truncate w-64 " <> unless seen?(room.messages, @current_user.id), do: "font-medium text-highlight", else: ""}>
-                <%= get_last_message(room.messages, @current_user.id) %>
-              </div>
+              <span class="truncate">
+                <%= get_last_message(
+                  room.messages,
+                  @current_user.id
+                ) %>
+              </span>
+            </div>
+            <div class="flex flex-col text-xs justify-between h-full">
+              <span>26/04/2021</span>
+              <span></span>
             </div>
           </li>
         </ul>
-      </fieldset>
+      </div>
       <!-- Chat Area -->
-      <fieldset class="flex flex-col w-full border border-gray-200 w-[75%]">
-        <%= if @current_room == nil do %>
-          <div class="flex items-center justify-center h-full">
-            <div class="text-highlight text-center">
-              <h2 class="text-2xl font-bold mb-4">
-                No Conversation selected
-              </h2>
-              <p class="text-lg">
-                Click on a name to start a conversation with your friend!
-              </p>
-            </div>
+      <div class="flex flex-col grow">
+        <%!-- Chat header --%>
+        <div class="flex justify-between items-center bg-gray-50 py-4 px-6 gap-3">
+          <div class="flex items-center gap-2">
+            <img src={avatar_src(@current_user.display_name)} class="rounded-full h-10 w-10" />
+            <span class="font-medium text-slate-600"><%= @current_user.display_name %></span>
           </div>
-        <% else %>
-          <legend class="px-2 text-sm text-center text-nav_text_light font-bold">
-            <%= get_room_name(@current_room, @current_user.id) %>
-          </legend>
+          <button class="flex items-center justify-center hover:bg-slate-200 aspect-square w-10 h-10 rounded-full">
+            <Svg.dots_vertical />
+          </button>
+        </div>
+
+        <%!-- Chat --%>
+        <div
+          id={"room-#{@current_room.id}"}
+          class="overflow-y-scroll flex-grow px-6 pt-2 border-y"
+          phx-hook="ScrollBack"
+          phx-click={JS.dispatch("phx:focus_element", to: "#message_box")}
+        >
           <div
-            id={"room-#{@current_room.id}"}
-            class="overflow-y-scroll flex-grow px-2 pt-2"
-            phx-hook="ScrollBack"
-            phx-click={JS.dispatch("phx:focus_element", to: "#message_box")}
+            :for={message <- Enum.reverse(@chat_history || [])}
+            class={"flex mb-3 " <> if(message.sender_id == @current_user.id, do: "justify-end", else: "justify-start")}
           >
-            <div
-              :for={message <- Enum.reverse(@chat_history || [])}
-              class={[
-                "flex mb-3",
-                if(message.sender_id == @current_user.id, do: "justify-end", else: "justify-start")
-              ]}
-            >
-              <div class="flex flex-col gap-1">
-                <span
-                  :if={
-                    @current_room.type == RoomType.group() and message.sender.id != @current_user.id
-                  }
-                  class="text-xs pl-1 text-white"
-                >
-                  <%= message.sender.display_name %>
-                </span>
-                <div class={"rounded-md px-2 py-1 " <> if message.sender_id == @current_user.id, do: "bg-bubble_me text-white", else: "bg-bubble_you text-nav_text_dark"}>
-                  <p class="max-w-prose break-words"><%= message.content %></p>
-                  <div class={"text-xs " <> if message.sender_id == @current_user.id, do: "text-right text-gray-300", else: "text-gray-600"}>
-                    <%= extract_time(message.sent_at) %>
-                  </div>
+            <div class="flex flex-col gap-1">
+              <span
+                :if={@current_room.type == RoomType.group() and message.sender.id != @current_user.id}
+                class="text-xs pl-1"
+              >
+                <%= message.sender.display_name %>
+              </span>
+              <div class={"rounded-xl relative px-3 py-2 text-gray-50 " <> if message.sender_id == @current_user.id, do: "bg-blue-500", else: "bg-gray-500"}>
+                <p class="max-w-prose break-words"><%= message.content %></p>
+                <div class={"absolute bottom-0 w-3 " <> if message.sender_id == @current_user.id, do: "-right-1 text-blue-500", else: "-left-1 text-gray-500 -scale-x-100"}>
+                  <Svg.bubble_tail />
                 </div>
+              </div>
+
+              <div class={"text-xs text-slate-400 font-semibold " <> if message.sender_id == @current_user.id, do: "text-right mr-2", else: "ml-2"}>
+                <%= extract_time(message.sent_at) %>
               </div>
             </div>
           </div>
-          <fieldset class="m-2 mt-2 p-1 border border-gray-200">
-            <legend class="px-2 text-sm text-center text-nav_text_light font-bold">Prompt</legend>
-            <form
-              class="focus:outline-none focus:ring focus:border-blue-300"
-              phx-submit="message_box:send"
-              phx-change="message_box:change"
-            >
-              <input
-                id="message_box"
-                type="text"
-                name="content"
-                class="w-full pt-0 bg-neutral-50 border-none text-white bg-default_background placeholder:text-slate-300 focus:outline-none focus:ring-0"
-                placeholder="Type your message..."
-                phx-debounce="100"
-                value={Map.get(@message_box, @current_room.id, "")}
-                autofocus
-              />
-            </form>
-          </fieldset>
-        <% end %>
-      </fieldset>
+        </div>
+
+        <%!-- Text input --%>
+        <div class="p-4">
+          <form
+            class="flex justify-between gap-4"
+            phx-submit="message_box:send"
+            phx-change="message_box:change"
+          >
+            <input
+              id="message_box"
+              type="text"
+              name="content"
+              class="w-full rounded-3xl border-slate-300 border-2 focus:border-indigo-400"
+              placeholder="Type your message..."
+              phx-debounce="100"
+              value={Map.get(@message_box, @current_room.id, "")}
+            />
+            <button class="flex items-center hover:bg-slate-200 focus:bg-slate-300 rounded-full w-11 h-10">
+              <Svg.send class="text-indigo-600 rotate-45 w-5 h-5 ml-2" />
+            </button>
+          </form>
+        </div>
+      </div>
     </div>
     """
   end
@@ -329,5 +381,20 @@ defmodule RoomyWeb.HomeLive do
     |> Enum.find(fn %User{id: user_id} -> user_id != current_user_id end)
     |> Maybe.pure()
     |> Maybe.fold("error :(", fn %User{display_name: name} -> name end)
+  end
+
+  defp avatar_src(name) do
+    attrs =
+      %{
+        name: name |> String.split(" ") |> Enum.join("+"),
+        background: "0D8ABC",
+        color: "FFFFFF",
+        "font-size": 0.35,
+        bold: true
+      }
+      |> Enum.map(fn {k, v} -> to_string(k) <> "=" <> to_string(v) end)
+      |> Enum.join("&")
+
+    "https://ui-avatars.com/api/?#{attrs}"
   end
 end

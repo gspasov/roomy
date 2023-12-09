@@ -3,9 +3,6 @@ defmodule RoomyWeb.Components.ContextMenu do
 
   alias RoomyWeb.Components.Core
 
-  attr(:id, :integer, required: true)
-  attr(:title, :string, required: true)
-
   slot :item do
     attr(:title, :string)
     attr(:href, :string)
@@ -14,30 +11,37 @@ defmodule RoomyWeb.Components.ContextMenu do
   end
 
   def menu(assigns) do
+    assigns = Phoenix.Component.assign(assigns, id: System.unique_integer())
+
     ~H"""
     <nav
-      class="px-3 relative cursor-pointer text-sm font-bold tracking-wider text-nav_text_light hover:bg-nav_text_dark"
+      class="relative"
       phx-click={Core.toggle("#context-menu-" <> to_string(@id))}
       phx-click-away={Core.hide_fast("#context-menu-" <> to_string(@id))}
     >
-      <span class="text-highlight"><%= String.first(@title) %></span><%= String.slice(@title, 1, 99) %>
+      <%= render_slot(@inner_block) %>
       <div
         id={"context-menu-" <> to_string(@id)}
-        class="absolute left-0 p-1 w-48 flex hidden bg-navigation z-10"
+        class="absolute left-0 block hidden z-10 shadow-xl drop-shadow-xl bg-white rounded py-2"
       >
-        <ul class="border-2 py-2 border-nav_text_light">
+        <ul>
           <li :for={item <- @item}>
-            <.link
+            <div
               :if={!item[:border]}
-              href={item.href}
-              method={item[:method] || "get"}
-              class="mx-1 block hover:bg-nav_text_dark px-2"
+              class="flex items-center px-5 h-12 w-full gap-4 text-slate-500 cursor-pointer hover:bg-gray-100"
             >
-              <%= item.title %>
-            </.link>
+              <%= item.inner_block && render_slot(item) %>
+              <.link
+                href={item.href}
+                method={item[:method] || "get"}
+                class="text-sm whitespace-nowrap"
+              >
+                <%= item.title %>
+              </.link>
+            </div>
 
             <div :if={item[:border]} class="py-2">
-              <span class="block border-t-2 border-nav_text-light" />
+              <span class="block border-t-2" />
             </div>
           </li>
         </ul>
