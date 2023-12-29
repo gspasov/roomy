@@ -9,53 +9,68 @@ defmodule RoomyWeb.UserRegistrationLive do
 
   def render(assigns) do
     ~H"""
-    <div class="flex flex-col gap-2 mt-20 relative items-center">
-      <h1 class="text-white font-bold text-8xl">Welcome to <br /> Roomy</h1>
-      <fieldset class="px-12 py-6 mt-20 border rounded border-gray-200 min-w-[25%]">
-        <legend class="px-2 text-sm text-center text-nav_text_light font-bold">Sign up</legend>
-        <.simple_form
-          for={@form}
-          id="registration_form"
-          phx-submit="register"
-          phx-change="validate"
-          phx-trigger-action={@trigger_submit}
-          action={~p"/users/log_in?_action=registered"}
-          method="post"
-          class="flex flex-col gap-2"
-        >
-          <.error :if={@check_errors}>
-            Oops, something went wrong! Please check the errors below.
-          </.error>
-
-          <.input field={@form[:username]} type="text" label="Username" required />
-          <.input field={@form[:display_name]} type="text" label="Display Name" />
-          <.input field={@form[:password]} type="password" label="Password" required />
-
-          <:actions>
-            <div class="flex justify-center pt-6">
-              <div class="text-white">
-                <span class="text-xl">[</span>
-                <button
-                  class="text-center px-1 hover:bg-slate-300/25"
-                  type="submit"
-                  phx-disable-with="Creating account..."
-                >
-                  &lt; Create an account &gt;
-                </button>
-                <span class="text-xl">]</span>
-              </div>
-            </div>
-          </:actions>
-        </.simple_form>
-      </fieldset>
-      <div class="flex gap-5 items-center text-white">
-        <span class="italic">Already have an account?</span>
+    <div class="flex h-screen w-screen">
+      <div class="flex flex-1 items-center justify-end p-10 bg-white">
         <div>
-          <span>[</span>
-          <.link class="text-center px-1 hover:bg-slate-300/25" navigate={~p"/users/log_in"}>
-            &lt; Log in &gt;
-          </.link>
-          <span>]</span>
+          <h2 class="font-extrabold tracking-tight leading-tight text-gray-800 text-4xl">Sign up</h2>
+          <p class="text-sm">
+            Already have an account?
+            <.link class="cursor-pointer text-indigo-700 hover:underline" navigate={~p"/users/log_in"}>
+              Sign in
+            </.link>
+          </p>
+          <.simple_form
+            for={@form}
+            id="registration_form"
+            phx-submit="register"
+            phx-change="validate"
+            phx-trigger-action={@trigger_submit}
+            action={~p"/users/log_in?_action=registered"}
+            method="post"
+            class="flex flex-col gap-2"
+          >
+            <div class="flex flex-col gap-3 my-6 w-72">
+              <.input
+                field={@form[:username]}
+                type="text"
+                label="Username *"
+                debounce={500}
+                required
+                autofocus
+              />
+              <.input field={@form[:display_name]} type="text" label="Display Name *" />
+              <.input
+                field={@form[:password]}
+                type="password"
+                label="Password *"
+                debounce={500}
+                required
+              />
+              <.input
+                field={@form[:confirm_password]}
+                type="password"
+                label="Confirm Password *"
+                debounce={500}
+                required
+              />
+            </div>
+            <:actions>
+              <button class="text-sm rounded-3xl h-12 text-white font-semibold text-center px-1 bg-indigo-600 hover:bg-indigo-600/[.95] focus:bg-indigo-700">
+                Create your free account
+              </button>
+            </:actions>
+          </.simple_form>
+        </div>
+      </div>
+      <div class="flex flex-1 flex-col relative">
+        <div class="flex h-full w-full items-center bg-indigo-800 p-10 z-10 bg-[url('/images/sign_up.jpg')] bg-blend-overlay bg-no-repeat bg-cover">
+          <div class="z-1">
+            <h1 class="text-white font-bold text-6xl">Welcome to <br /> Roomy</h1>
+            <br />
+            <p class="text-slate-300">
+              Connect to friends and family in one place. Join us now to embrace the new world.
+            </p>
+          </div>
         </div>
       </div>
     </div>

@@ -3,40 +3,55 @@ defmodule RoomyWeb.UserLoginLive do
 
   def render(assigns) do
     ~H"""
-    <div class="flex flex-col gap-2 mt-20 relative items-center">
-      <h1 class="text-white font-bold text-8xl">Let's chat on <br /> Roomy</h1>
-      <fieldset class="px-12 py-6 mt-20 border rounded border-gray-200 min-w-[25%]">
-        <legend class="px-2 text-sm text-center text-nav_text_light font-bold">Log in</legend>
-        <.simple_form
-          for={@form}
-          id="login_form"
-          action={~p"/users/log_in"}
-          phx-update="ignore"
-          class="flex flex-col gap-2"
-        >
-          <.input field={@form[:username]} type="text" label="Username" required autofocus />
-          <.input field={@form[:password]} type="password" label="Password" required />
-          <:actions>
-            <div class="flex justify-around pt-6 text-white">
+    <div class="flex h-screen w-screen">
+      <div class="flex flex-1 items-center justify-end p-10 bg-white">
+        <div>
+          <h2 class="font-extrabold tracking-tight leading-tight text-gray-800 text-4xl">Sign in</h2>
+          <p class="text-sm">
+            Don't have an account?
+            <.link
+              class="cursor-pointer text-indigo-700 hover:underline"
+              navigate={~p"/users/register"}
+            >
+              Sign up
+            </.link>
+          </p>
+          <.simple_form
+            for={@form}
+            id="login_form"
+            action={~p"/users/log_in"}
+            phx-update="ignore"
+            class="flex flex-col gap-2"
+          >
+            <div class="flex flex-col gap-3 my-6 w-72">
+              <.input field={@form[:username]} type="text" label="Username *" required autofocus />
               <div>
-                <span class="text-xl">[</span>
-                <button class="text-center px-1 hover:bg-slate-300/25" type="submit">
-                  &lt; Sign in &gt;
-                </button>
-                <span class="text-xl">]</span>
+                <.input field={@form[:password]} type="password" label="Password *" required />
+                <.link
+                  class="text-sm text-indigo-700 cursor-pointer hover:underline"
+                  navigate={~p"/users/log_in"}
+                >
+                  Forgot password?
+                </.link>
               </div>
             </div>
-          </:actions>
-        </.simple_form>
-      </fieldset>
-      <div class="flex gap-5 items-center text-white">
-        <span class="italic">Don't have an account yet?</span>
-        <div>
-          <span>[</span>
-          <.link class="text-center px-1 hover:bg-slate-300/25" navigate={~p"/users/register"}>
-            &lt; Register &gt;
-          </.link>
-          <span>]</span>
+            <:actions>
+              <button class="text-sm rounded-3xl h-12 text-white font-semibold text-center px-1 bg-indigo-600 hover:bg-indigo-600/[.95] focus:bg-indigo-700">
+                Sign in
+              </button>
+            </:actions>
+          </.simple_form>
+        </div>
+      </div>
+      <div class="flex flex-1 flex-col relative">
+        <div class="flex h-full w-full items-center bg-indigo-800 p-10 z-10 bg-[url('/images/sign_up.jpg')] bg-blend-overlay bg-no-repeat bg-cover">
+          <div class="z-1">
+            <h1 class="text-white font-bold text-6xl">Welcome to <br /> Roomy</h1>
+            <br />
+            <p class="text-slate-300">
+              Connect to friends and family in one place. Join us now to embrace the new world.
+            </p>
+          </div>
         </div>
       </div>
     </div>

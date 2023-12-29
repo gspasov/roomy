@@ -36,7 +36,7 @@ defmodule Roomy.Models.UserMessage do
   typedstruct module: New do
     field(:user_id, pos_integer(), enforce: true)
     field(:message_id, pos_integer(), enforce: true)
-    field(:seen, boolean())
+    field(:seen, boolean(), default: false)
   end
 
   typedstruct module: Read do

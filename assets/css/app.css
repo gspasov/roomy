@@ -13,15 +13,15 @@ input[data-autocompleted] {
 }
 
 ::-webkit-scrollbar {
-  width: 12px;               /* width of the entire scrollbar */
+  width: 10px;               /* width of the entire scrollbar */
 }
 
 ::-webkit-scrollbar-track {
-  background: #3465A4;        /* color of the tracking area */
+  background: #ffffff;        /* color of the tracking area */
 }
 
 ::-webkit-scrollbar-thumb {
-  background-color: #E8ECEA;
-  border-radius: 1px;
-  border: 3px solid #3465A4;
+  background-color: #bababa;
+  border-radius: 10px;
+  border: 3px solid #ffffff;
 }

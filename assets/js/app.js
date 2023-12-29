@@ -59,17 +59,33 @@ Hooks.MouseEvent = {
 };
 
 window.addEventListener(`phx:focus_element`, (event) => {
-  console.log("here", event);
   if (event.target.id) {
-    console.log("focus via target");
+    // Called with `JS.dispatch_event`
+    console.log("phx:focus_element via target");
     document.getElementById(event.target.id).focus();
     return;
   }
 
   if (event.detail.id) {
-    console.log("focus via detail", event.detail);
-    console.log(event.detail.id, document.getElementById(event.detail.id));
+    // Called with `Phoenix.LiveView.push_event`
+    console.log("phx:focus_element via detail", event.detail);
     document.getElementById(event.detail.id).focus();
+    return;
+  }
+});
+
+window.addEventListener(`phx:hide_element`, (event) => {
+  if (event.target.id) {
+    // Called with `JS.dispatch_event`
+    console.log("phx:hide_element via target");
+    document.getElementById(event.target.id).style.display = "none";
+    return;
+  }
+
+  if (event.detail.id) {
+    // Called with `Phoenix.LiveView.push_event`
+    console.log("phx:hide_element via detail", event.detail);
+    document.getElementById(event.detail.id).style.display = "none";
     return;
   }
 });
