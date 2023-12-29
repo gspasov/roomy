@@ -22,7 +22,7 @@ defmodule RoomyWeb.Notifier do
     Bus.subscribe(Bus.Topic.system())
     Bus.subscribe(Bus.Topic.invitation_all(user_id))
 
-    Enum.each(rooms, fn {room_id, _} ->
+    Enum.each(rooms, fn %Room{id: room_id} ->
       room_id
       |> Bus.Topic.room()
       |> Bus.subscribe()
@@ -36,7 +36,7 @@ defmodule RoomyWeb.Notifier do
     {:cont, new_socket}
   end
 
-  defp maybe_handle_message({Roomy.Bus, %Bus.Event.UserJoin{display_name: name}}, socket) do
+  defp maybe_handle_message({Bus, %Bus.Event.UserJoin{display_name: name}}, socket) do
     new_socket = put_flash(socket, :info, "New user by the name of '#{name}' has joined Roomy!")
 
     {:cont, new_socket}

@@ -12,11 +12,17 @@ defmodule Roomy.Bus do
   #          API           #
   # ====================== #
 
-  @spec subscribe(topic :: String.t()) :: :ok
+  @spec subscribe(topic :: String.t()) :: :ok | {:error, :already_subscribed}
   def subscribe(topic) do
-    topic
-    |> name()
-    |> :pg.join(self())
+    pid = self()
+
+    if pid not in get_subscribers(topic) do
+      topic
+      |> name()
+      |> :pg.join(pid)
+    else
+      {:error, :already_subscribed}
+    end
   end
 
   @spec unsubscribe(topic :: String.t()) :: :ok
@@ -24,6 +30,13 @@ defmodule Roomy.Bus do
     topic
     |> name()
     |> :pg.leave(self())
+  end
+
+  @spec get_subscribers(topic :: String.t()) :: [pid()]
+  def get_subscribers(topic) do
+    topic
+    |> name()
+    |> :pg.get_members()
   end
 
   @spec publish(topic :: String.t(), message :: any()) :: :ok

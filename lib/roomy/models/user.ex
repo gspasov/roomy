@@ -94,6 +94,14 @@ defmodule Roomy.Models.User do
     get_by([id: id], preloads)
   end
 
+  @spec get!(pos_integer(), any()) :: __MODULE__.t()
+  def get!(id, preloads \\ []) when is_number(id) do
+    case get_by([id: id], preloads) do
+      {:ok, entry} -> entry
+      {:error, _} -> throw("Database object with id #{id} cannot be found!")
+    end
+  end
+
   @spec get_by([{atom(), any()}], any()) ::
           {:ok, __MODULE__.t()} | {:error, :not_found}
   def get_by(opts, preloads \\ []) do
@@ -123,6 +131,22 @@ defmodule Roomy.Models.User do
       where:
         ilike(user.username, ^like) or
           ilike(user.display_name, ^like)
+    )
+    |> Repo.all()
+  end
+
+  def find_unknown_users_by_name(name, user_id) do
+    like = "%#{name}%"
+
+    from(user in __MODULE__,
+      left_join: friend in assoc(user, :friends),
+      left_join: invitation in assoc(user, :invitations),
+      where:
+        user.id != ^user_id and
+          (friend.id != ^user_id or is_nil(friend)) and
+          (invitation.sender_id != ^user_id or is_nil(invitation)) and
+          (ilike(user.username, ^like) or ilike(user.display_name, ^like)),
+      distinct: user.id
     )
     |> Repo.all()
   end

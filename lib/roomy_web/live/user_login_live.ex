@@ -49,7 +49,7 @@ defmodule RoomyWeb.UserLoginLive do
             <h1 class="text-white font-bold text-6xl">Welcome to <br /> Roomy</h1>
             <br />
             <p class="text-slate-300">
-              Text your friends and family in one place Join us now to embrace the new world.
+              Connect to friends and family in one place. Join us now to embrace the new world.
             </p>
           </div>
         </div>

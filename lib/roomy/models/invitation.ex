@@ -1,7 +1,7 @@
 defmodule Roomy.Models.Invitation do
   @moduledoc false
 
-  use Roomy.EctoModel, preloads: [:sender, :room]
+  use Roomy.EctoModel, preloads: [:sender, room: [invitations: [:sender, :receiver]]]
   use TypedStruct
 
   alias Roomy.Models.User

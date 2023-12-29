@@ -54,7 +54,9 @@ defmodule Roomy.EctoModel do
           preload: 2,
           dynamic: 1,
           dynamic: 2,
-          join: 5
+          join: 5,
+          subquery: 1,
+          subquery: 2
         ]
 
       alias Roomy.Repo
@@ -136,11 +138,29 @@ defmodule Roomy.EctoModel do
         __MODULE__.get_by([id: id], preloads)
       end
 
+      @spec get!(String.t() | pos_integer(), preloads()) :: __MODULE__.t()
+      def get!(id, preloads \\ @default_preloads)
+
+      def get!(string_id, preloads) when is_binary(string_id) do
+        parse_execute(string_id, &__MODULE__.get!(&1, preloads))
+      end
+
+      def get!(id, preloads) when is_integer(id) do
+        case __MODULE__.get_by([id: id], preloads) do
+          {:ok, user} -> user
+          {:error, _} -> throw("Database object with id #{id} cannot be found!")
+        end
+      end
+
       @spec get_by(get_by(), preloads()) :: {:ok, __MODULE__.t()} | {:error, :not_found}
-      def get_by(options, preloads \\ @default_preloads) do
-        __MODULE__
-        |> Repo.get_by(options)
-        |> Repo.preload(preloads)
+      def get_by(filters, preloads \\ @default_preloads) do
+        query = from(rows in __MODULE__)
+        {new_query, dynamic_where} = dynamic_where_clause(query, filters)
+
+        new_query
+        |> where(^dynamic_where)
+        |> preload(^preloads)
+        |> Repo.one()
         |> case do
           %{} = struct when is_struct(struct, __MODULE__) -> {:ok, struct}
           nil -> {:error, :not_found}
@@ -161,11 +181,7 @@ defmodule Roomy.EctoModel do
         filters =
           options
           |> Keyword.get(:filter, [])
-          |> case do
-            struct when is_struct(struct) -> struct |> Map.from_struct() |> Map.to_list()
-            map when is_map(map) -> Map.to_list(map)
-            list when is_list(list) -> list
-          end
+          |> normalize_filter_options()
 
         order_by = Keyword.get(options, :order_by, [])
         preloads = Keyword.get(options, :preloads, @default_preloads)
@@ -302,9 +318,20 @@ defmodule Roomy.EctoModel do
         end
       end
 
+      defp normalize_filter_options(filter) do
+        case filter do
+          struct when is_struct(struct) -> struct |> Map.from_struct() |> Map.to_list()
+          map when is_map(map) -> Map.to_list(map)
+          list when is_list(list) -> list
+        end
+      end
+
       defoverridable create: 2,
                      update: 3,
+                     get: 1,
                      get: 2,
+                     get!: 1,
+                     get!: 2,
                      get_by: 2,
                      all: 0,
                      all_by: 1,

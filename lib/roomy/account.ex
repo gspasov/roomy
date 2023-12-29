@@ -160,7 +160,7 @@ defmodule Roomy.Account do
       from(message in Message,
         join: ranked_message in subquery(ranking_query),
         on: message.id == ranked_message.id and ranked_message.row_number == 1,
-        join: user_message in assoc(message, :users_messages),
+        left_join: user_message in assoc(message, :users_messages),
         on:
           message.id == user_message.message_id and
             (user_message.user_id == ^user_id or message.sender_id == ^user_id),
@@ -170,12 +170,30 @@ defmodule Roomy.Account do
 
     from(room in Room,
       join: user in assoc(room, :users),
-      join: invitation in assoc(room, :invitation),
-      where: user.id == ^user_id and invitation.status == ^InvitationStatus.accepted(),
-      preload: [:users, messages: ^last_room_message]
+      where: user.id == ^user_id,
+      preload: [:users, invitations: [:receiver, :sender], messages: ^last_room_message]
     )
     |> Repo.all()
-    |> Enum.into(%{}, fn %Room{id: id} = room -> {id, room} end)
+    |> Enum.sort(fn
+      %Room{messages: [%Message{}]}, %Room{messages: []} ->
+        true
+
+      %Room{messages: []}, %Room{messages: [%Message{}]} ->
+        false
+
+      %Room{messages: [], invitations: [%Invitation{inserted_at: at1}]},
+      %Room{messages: [], invitations: [%Invitation{inserted_at: at2}]} ->
+        case DateTime.compare(at1, at2) do
+          :gt -> true
+          _ -> false
+        end
+
+      %Room{messages: [%Message{sent_at: at1}]}, %Room{messages: [%Message{sent_at: at2}]} ->
+        case DateTime.compare(at1, at2) do
+          :gt -> true
+          _ -> false
+        end
+    end)
   end
 
   @spec find_users_by_name(String.t()) :: [User.t()]
@@ -183,42 +201,81 @@ defmodule Roomy.Account do
     User.find_users_by_name(name)
   end
 
+  @spec find_unknown_users_by_name(String.t(), pos_integer()) :: [User.t()]
+  def find_unknown_users_by_name(name, user_id) do
+    User.find_unknown_users_by_name(name, user_id)
+  end
+
+  @spec find_rooms_by_name(String.t(), pos_integer()) :: [User.t()]
+  def find_rooms_by_name(name, user_id) do
+    Room.find_by_name(name, user_id)
+  end
+
+  def valid_room_id?(room_id, user_id) do
+    case Room.get_by(id: room_id, users: [id: user_id]) do
+      {:ok, %Room{}} -> true
+      _ -> false
+    end
+  end
+
   @spec send_friend_request(Roomy.Request.SendFriendRequest.t()) ::
-          {:ok, Invitation.t()} | {:error, Ecto.Changeset.t()}
+          {:ok, Room.t()} | {:error, Ecto.Changeset.t()}
   def send_friend_request(%Request.SendFriendRequest{
         sender_id: sender_id,
         receiver_id: receiver_id,
         invitation_message: message
       }) do
+    maybe_send_message = fn room_id ->
+      case message do
+        "" ->
+          :ok
+
+        nil ->
+          :ok
+
+        _ ->
+          with {:ok, %Message{id: message_id}} <-
+                 Message.create(%Message.New{
+                   content: message,
+                   room_id: room_id,
+                   sender_id: sender_id,
+                   sent_at: DateTime.utc_now()
+                 }),
+               {:ok, _} <-
+                 UserMessage.create(%UserMessage.New{
+                   user_id: receiver_id,
+                   message_id: message_id
+                 }) do
+            :ok
+          end
+      end
+    end
+
     Repo.tx(fn ->
       with {:ok, %User{}} <- User.get(receiver_id),
-           {:ok, %Room{id: room_id}} <-
+           {:ok, %Room{id: room_id} = room} <-
              Room.create(%{name: build_room_name(sender_id, receiver_id), type: RoomType.dm()}),
            {:ok, %UserRoom{}} <- UserRoom.create(%{room_id: room_id, user_id: sender_id}),
-           {:ok, %Invitation{}} = invitation <-
+           {:ok, %Invitation{id: invitation_id}} <-
              Invitation.create(%{
                message: message,
                sender_id: sender_id,
                room_id: room_id,
                receiver_id: receiver_id
-             }) do
-        invitation
+             }),
+           :ok <- maybe_send_message.(room_id) do
+        Bus.Event.invitation_request(%Bus.Event.FriendInvitationRequest{
+          invitation_id: invitation_id,
+          sender_id: sender_id,
+          receiver_id: receiver_id
+        })
+
+        {:ok, room}
       else
         error ->
           Logger.error("[#{__MODULE__}] Error sending friend request with #{inspect(error)}")
           Repo.rollback(error)
       end
-    end)
-    |> tap(fn
-      {:ok, %Invitation{id: id}} ->
-        Bus.Event.invitation_request(%Bus.Event.FriendInvitationRequest{
-          invitation_id: id,
-          sender_id: sender_id,
-          receiver_id: receiver_id
-        })
-
-      _ ->
-        nil
     end)
   end
 

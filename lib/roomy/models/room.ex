@@ -9,11 +9,15 @@ defmodule Roomy.Models.Room do
   alias Roomy.Models.UserRoom
   alias Roomy.Models.Invitation
 
+  require Roomy.Constants.RoomType, as: RoomType
+
+  # require RoomType
+
   @type t :: %__MODULE__{
           id: pos_integer(),
           name: String.t(),
           type: String.t(),
-          invitation: Invitation.t() | nil,
+          invitations: [Invitation.t()],
           users: [User.t()],
           messages: [Message.t()]
         }
@@ -26,7 +30,7 @@ defmodule Roomy.Models.Room do
 
     many_to_many(:users, User, join_through: UserRoom)
     has_many(:messages, Message)
-    has_one(:invitation, Invitation)
+    has_many(:invitations, Invitation)
 
     timestamps(type: :utc_datetime_usec)
   end
@@ -45,5 +49,29 @@ defmodule Roomy.Models.Room do
   def update_changeset(%__MODULE__{} = room, attrs) do
     room
     |> cast(attrs, @allowed_fields)
+  end
+
+  def find_by_name(name, user_id) do
+    like = "%#{name}%"
+
+    user_rooms =
+      from(room in __MODULE__,
+        join: room_user in assoc(room, :users),
+        where: room_user.id == ^user_id
+      )
+
+    from(room in subquery(user_rooms),
+      join: invitation in assoc(room, :invitations),
+      join: invited_user in assoc(invitation, :receiver),
+      join: room_user in assoc(room, :users),
+      distinct: room.id,
+      where:
+        (room.type == ^RoomType.dm() and
+           (ilike(room_user.username, ^like) or ilike(room_user.display_name, ^like) or
+              ilike(invited_user.username, ^like) or ilike(invited_user.display_name, ^like))) or
+          (room.type == ^RoomType.group() and ilike(room.name, ^like))
+    )
+    |> Repo.all()
+    |> Repo.preload([:users, invitations: [:receiver, :sender]])
   end
 end
