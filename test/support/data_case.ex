@@ -16,11 +16,6 @@ defmodule Roomy.DataCase do
 
   use ExUnit.CaseTemplate
 
-  import Roomy.Factory
-
-  alias Roomy.Repo
-  alias Ecto.Adapters.SQL.Sandbox
-
   using do
     quote do
       alias Roomy.Repo
@@ -29,25 +24,20 @@ defmodule Roomy.DataCase do
       import Ecto.Changeset
       import Ecto.Query
       import Roomy.DataCase
-      import Roomy.Factory
-
-      import Roomy.TestUtils,
-        only: [send_friend_request: 3, subscribe_to_topic: 1, strip_unnecessary_fields: 1]
     end
   end
 
   setup tags do
     Roomy.DataCase.setup_sandbox(tags)
-
-    %{user1: insert(:user), user2: insert(:user)}
+    :ok
   end
 
   @doc """
   Sets up the sandbox based on the test tags.
   """
   def setup_sandbox(tags) do
-    pid = Sandbox.start_owner!(Repo, shared: not tags[:async])
-    on_exit(fn -> Sandbox.stop_owner(pid) end)
+    pid = Ecto.Adapters.SQL.Sandbox.start_owner!(Roomy.Repo, shared: not tags[:async])
+    on_exit(fn -> Ecto.Adapters.SQL.Sandbox.stop_owner(pid) end)
   end
 
   @doc """

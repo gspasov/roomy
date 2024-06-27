@@ -8,17 +8,19 @@
 import Config
 
 config :roomy,
-  ecto_repos: [Roomy.Repo]
+  ecto_repos: [Roomy.Repo],
+  generators: [timestamp_type: :utc_datetime]
 
 # Configures the endpoint
 config :roomy, RoomyWeb.Endpoint,
   url: [host: "localhost"],
+  adapter: Bandit.PhoenixAdapter,
   render_errors: [
     formats: [html: RoomyWeb.ErrorHTML, json: RoomyWeb.ErrorJSON],
     layout: false
   ],
   pubsub_server: Roomy.PubSub,
-  live_view: [signing_salt: "ZCQVoc04"]
+  live_view: [signing_salt: "xYVmWOPJ"]
 
 # Configures the mailer
 #
@@ -31,8 +33,8 @@ config :roomy, Roomy.Mailer, adapter: Swoosh.Adapters.Local
 
 # Configure esbuild (the version is required)
 config :esbuild,
-  version: "0.14.41",
-  default: [
+  version: "0.17.11",
+  roomy: [
     args:
       ~w(js/app.js --bundle --target=es2017 --outdir=../priv/static/assets --external:/fonts/* --external:/images/*),
     cd: Path.expand("../assets", __DIR__),
@@ -41,8 +43,8 @@ config :esbuild,
 
 # Configure tailwind (the version is required)
 config :tailwind,
-  version: "3.2.4",
-  default: [
+  version: "3.4.3",
+  roomy: [
     args: ~w(
       --config=tailwind.config.js
       --input=css/app.css

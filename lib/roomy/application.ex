@@ -8,19 +8,16 @@ defmodule Roomy.Application do
   @impl true
   def start(_type, _args) do
     children = [
-      pg_spec(),
-      # Start the Telemetry supervisor
       RoomyWeb.Telemetry,
-      # Start the Ecto repository
       Roomy.Repo,
-      # Start the PubSub system
+      {DNSCluster, query: Application.get_env(:roomy, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: Roomy.PubSub},
-      # Start Finch
+      # Start the Finch HTTP client for sending emails
       {Finch, name: Roomy.Finch},
-      # Start the Endpoint (http/https)
-      RoomyWeb.Endpoint
       # Start a worker by calling: Roomy.Worker.start_link(arg)
-      # {Roomy.Worker, arg}
+      # {Roomy.Worker, arg},
+      # Start to serve requests, typically the last entry
+      RoomyWeb.Endpoint
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html
@@ -35,12 +32,5 @@ defmodule Roomy.Application do
   def config_change(changed, _new, removed) do
     RoomyWeb.Endpoint.config_change(changed, removed)
     :ok
-  end
-
-  defp pg_spec do
-    %{
-      id: :pg,
-      start: {:pg, :start_link, []}
-    }
   end
 end

@@ -32,31 +32,31 @@ defmodule Roomy.MixProject do
   # Type `mix help deps` for examples and options.
   defp deps do
     [
-      {:phoenix, "~> 1.7.1"},
-      {:phoenix_ecto, "~> 4.4"},
-      {:ecto_sql, "~> 3.6"},
+      {:phoenix, "~> 1.7.14"},
+      {:phoenix_ecto, "~> 4.5"},
+      {:ecto_sql, "~> 3.10"},
       {:postgrex, ">= 0.0.0"},
-      {:phoenix_html, "~> 3.3"},
+      {:phoenix_html, "~> 4.1"},
       {:phoenix_live_reload, "~> 1.2", only: :dev},
-      {:phoenix_live_view, "~> 0.18.16"},
+      # TODO bump on release to {:phoenix_live_view, "~> 1.0.0"},
+      {:phoenix_live_view, "~> 1.0.0-rc.1", override: true},
       {:floki, ">= 0.30.0", only: :test},
-      {:phoenix_live_dashboard, "~> 0.7.2"},
-      {:esbuild, "~> 0.5", runtime: Mix.env() == :dev},
-      {:tailwind, "~> 0.1.8", runtime: Mix.env() == :dev},
-      {:swoosh, "~> 1.3"},
+      {:phoenix_live_dashboard, "~> 0.8.3"},
+      {:esbuild, "~> 0.8", runtime: Mix.env() == :dev},
+      {:tailwind, "~> 0.2", runtime: Mix.env() == :dev},
+      {:swoosh, "~> 1.5"},
       {:finch, "~> 0.13"},
-      {:telemetry_metrics, "~> 0.6"},
+      {:telemetry_metrics, "~> 1.0"},
       {:telemetry_poller, "~> 1.0"},
       {:gettext, "~> 0.20"},
       {:jason, "~> 1.2"},
-      {:plug_cowboy, "~> 2.5"},
-      {:bcrypt_elixir, "~> 3.0"},
+      {:dns_cluster, "~> 0.1.1"},
+      {:bandit, "~> 1.5"},
       {:typed_struct, "~> 0.3.0"},
-      {:scrivener_ecto, "~> 2.0"},
-      {:dialyxir, "~> 1.3", only: [:dev], runtime: false},
+      {:dialyxir, "~> 1.3", only: :dev, runtime: false},
+      {:ex_machina, "~> 2.7.0", only: :dev, runtime: false},
       {:warm_fuzzy_thing, "~> 0.1.0"},
-      {:ex_machina, "~> 2.7.0"},
-      {:timex, "~> 3.7"}
+      {:fun_server, "~> 0.1.4"}
     ]
   end
 
@@ -68,15 +68,17 @@ defmodule Roomy.MixProject do
   # See the documentation for `Mix` for more info on aliases.
   defp aliases do
     [
-      setup: ["deps.get", "compile", "ecto.setup", "assets.setup", "assets.build"],
-      test: ["ecto.drop", "ecto.create --quiet", "ecto.migrate --quiet", "test"],
-      compile: ["compile"],
-      compile_with_errors: ["compile --warnings-as-errors --force"],
+      setup: ["deps.get", "ecto.setup", "assets.setup", "assets.build"],
       "ecto.setup": ["ecto.create", "ecto.migrate", "run priv/repo/seeds.exs"],
       "ecto.reset": ["ecto.drop", "ecto.setup"],
+      test: ["ecto.create --quiet", "ecto.migrate --quiet", "test"],
       "assets.setup": ["tailwind.install --if-missing", "esbuild.install --if-missing"],
-      "assets.build": ["tailwind default", "esbuild default"],
-      "assets.deploy": ["tailwind default --minify", "esbuild default --minify", "phx.digest"]
+      "assets.build": ["tailwind roomy", "esbuild roomy"],
+      "assets.deploy": [
+        "tailwind roomy --minify",
+        "esbuild roomy --minify",
+        "phx.digest"
+      ]
     ]
   end
 end
