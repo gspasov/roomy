@@ -24,6 +24,28 @@ import topbar from "../vendor/topbar";
 
 let Hooks = {};
 
+Hooks.ScrollToBottom = {
+  mounted() {
+    // Upon opening a chat, immediately scroll to the bottom
+    this.el.scrollTo(0, this.el.scrollHeight);
+
+    this.handleEvent("message:new", ({ is_sender }) => {
+      if (is_sender) {
+        this.el.scrollTo(0, this.el.scrollHeight);
+      } else {
+        const pixelsToBottom =
+          this.el.scrollHeight - this.el.clientHeight - this.el.scrollTop;
+
+        // Scroll to the bottom only if Reader has not scrolled far up
+        // Otherwise, keep his top scrolled position to not disturb him
+        if (pixelsToBottom < this.el.clientHeight * 0.4) {
+          this.el.scrollTo(0, this.el.scrollHeight);
+        }
+      }
+    });
+  },
+};
+
 let csrfToken = document
   .querySelector("meta[name='csrf-token']")
   .getAttribute("content");
