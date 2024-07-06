@@ -56,7 +56,9 @@ defmodule Roomy.MixProject do
       {:dialyxir, "~> 1.3", only: :dev, runtime: false},
       {:ex_machina, "~> 2.7.0", only: :dev, runtime: false},
       {:warm_fuzzy_thing, "~> 0.1.0"},
-      {:fun_server, "~> 0.1.4"}
+      {:fun_server, "~> 0.1.4"},
+      {:tesla, "~> 1.9"},
+      {:hackney, "~> 1.20"}
     ]
   end
 

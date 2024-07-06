@@ -11,6 +11,10 @@ config :roomy,
   ecto_repos: [Roomy.Repo],
   generators: [timestamp_type: :utc_datetime]
 
+config :tesla, adapter: Tesla.Adapter.Hackney
+
+config :roomy, :giphy, api_key: System.get_env("GIPHY_API_KEY")
+
 # Configures the endpoint
 config :roomy, RoomyWeb.Endpoint,
   url: [host: "localhost"],

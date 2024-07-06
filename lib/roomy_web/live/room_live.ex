@@ -1,7 +1,10 @@
 defmodule RoomyWeb.RoomLive do
+  use RoomyWeb, :live_view
+
+  alias Roomy.Giphy
+  alias Roomy.Message
   alias Roomy.Crypto
   alias Roomy.Bus
-  use RoomyWeb, :live_view
 
   @impl true
   def render(assigns) do
@@ -37,23 +40,57 @@ defmodule RoomyWeb.RoomLive do
             </div>
           </div>
           <div class="flex flex-col grow">
-            <div id="chat_history" class="grow overflow-y-auto" phx-hook="ScrollToBottom">
+            <div
+              id="chat_history"
+              class="flex flex-col gap-2 grow overflow-y-auto"
+              phx-hook="ScrollToBottom"
+            >
               <div
-                :for={{message, index} <- @chat_history |> Enum.reverse() |> Enum.with_index()}
-                class="flex mb-3"
+                :for={
+                  {%Message{sender: sender_name, sent_at: sent_at} = message, index} <-
+                    @chat_history |> Enum.reverse() |> Enum.with_index()
+                }
+                key={"message-#{index}"}
+                class="flex flex-col gap-1"
               >
-                <div key={"message-#{index}"} class="flex flex-col gap-1">
-                  <div class="rounded-xl relative px-3 py-2">
-                    <p class="max-w-prose break-words"><%= message %></p>
+                <div class="flex flex-col gap-1 px-4">
+                  <div class="text-xs">
+                    <span class="font-semibold"><%= sender_name %></span>
+                    <span><%= Calendar.strftime(sent_at, "%Y/%m/%d %I:%M %p") %></span>
                   </div>
+
+                  <p class="max-w-prose break-words"><%= render_message(message) %></p>
                 </div>
               </div>
             </div>
             <form
-              class="relative flex justify-between pb-4 px-4 gap-4 mt-2"
+              class="relative pb-4 px-4 gap-4 mt-2"
               phx-submit="message_box:submit"
               phx-change="message_box:change"
             >
+              <div class={[
+                "absolute p-2 m-2 columns-2 gap-2 rounded bottom-full right-0 bg-slate-300 overflow-y-auto",
+                if(@gif_dialog_open, do: "", else: "hidden")
+              ]}>
+                <img
+                  :for={
+                    %Giphy{
+                      preview_url: preview_url,
+                      preview_width: preview_width,
+                      preview_height: preview_height,
+                      medium_url: medium_url,
+                      medium_width: medium_width,
+                      medium_height: medium_height
+                    } <- @gifs
+                  }
+                  class="rounded mb-2 box-border cursor-pointer hover:border-2 hover:border-indigo-500"
+                  src={preview_url}
+                  height={to_string(preview_height)}
+                  width={to_string(preview_width)}
+                  phx-click="send_gif"
+                  phx-value-gif={render_gif(medium_url, medium_width, medium_height)}
+                />
+              </div>
               <input
                 id="message_box"
                 type="text"
@@ -64,6 +101,16 @@ defmodule RoomyWeb.RoomLive do
                 autocomplete="off"
                 value={@message_input}
               />
+              <button
+                class={[
+                  "absolute right-16 top-2 p-2 text-xs rounded-md border border-indigo-500 text-indigo-500 hover:bg-indigo-100",
+                  if(@gif_dialog_open, do: "bg-indigo-200", else: "")
+                ]}
+                type="button"
+                phx-click="gif_dialog:toggle"
+              >
+                GIF
+              </button>
               <button class="absolute right-5 top-1 h-10 w-10 rounded-full bg-indigo-600 text-stone-100 hover:bg-indigo-500">
                 >
               </button>
@@ -86,7 +133,10 @@ defmodule RoomyWeb.RoomLive do
         participants: %{},
         public_key: nil,
         private_key: nil,
-        room_id: room_id
+        room_id: room_id,
+        gif_dialog_open: false,
+        gifs: [],
+        giphy_client: Giphy.client()
       )
 
     {:ok, new_socket}
@@ -98,8 +148,38 @@ defmodule RoomyWeb.RoomLive do
   end
 
   @impl true
+  def handle_event(
+        "gif_dialog:toggle",
+        _,
+        %{assigns: %{gifs: gifs, giphy_client: client, gif_dialog_open: opened?}} = socket
+      ) do
+    new_socket =
+      with false <- opened?,
+           a when a == [] <- gifs,
+           {:ok, gifs} <- Giphy.trending_gifs(client, %{limit: 5}) do
+        assign(socket, gifs: gifs)
+      else
+        _ -> socket
+      end
+      |> assign(gif_dialog_open: not opened?)
+
+    {:noreply, new_socket}
+  end
+
+  @impl true
   def handle_event("message_box:change", %{"message" => message}, socket) do
     {:noreply, assign(socket, message_input: message)}
+  end
+
+  @impl true
+  def handle_event(
+        "send_gif",
+        %{"gif" => gif_img},
+        %{assigns: %{name: name, room_id: room_id, participants: participants}} = socket
+      ) do
+    submit_message(%Message{type: :render, sender: name, content: gif_img}, room_id, participants)
+
+    {:noreply, assign(socket, gif_dialog_open: false)}
   end
 
   @impl true
@@ -115,11 +195,7 @@ defmodule RoomyWeb.RoomLive do
           }
         } = socket
       ) do
-    Enum.each(participants, fn {receiver_name, aes_key} ->
-      encrypted_message = Crypto.encrypt_message(aes_key, message)
-      topic = participant_topic(room_id, receiver_name)
-      Bus.publish(topic, {:message, name, encrypted_message})
-    end)
+    submit_message(%Message{sender: name, content: message}, room_id, participants)
 
     {:noreply, assign(socket, message_input: "")}
   end
@@ -136,17 +212,18 @@ defmodule RoomyWeb.RoomLive do
 
   @impl true
   def handle_info(
-        {Bus, {:message, name, message}},
+        {Bus, {:message, name, encrypted_message}},
         %{assigns: %{chat_history: history, participants: participants}} = socket
       ) do
     decrypted_message =
       participants
       |> Map.fetch!(name)
-      |> Crypto.decrypt_message(message)
+      |> Crypto.decrypt_message(encrypted_message)
+      |> :erlang.binary_to_term()
 
     new_socket =
       socket
-      |> assign(chat_history: ["#{name}: #{decrypted_message}" | history])
+      |> assign(chat_history: [decrypted_message | history])
       |> push_event("message:new", %{is_sender: true})
 
     {:noreply, new_socket}
@@ -183,11 +260,32 @@ defmodule RoomyWeb.RoomLive do
     {:noreply, assign(socket, participants: Map.delete(participants, name))}
   end
 
+  defp submit_message(%Message{sender: name} = message, room_id, participants) do
+    Enum.each(participants, fn {receiver_name, aes_key} ->
+      encrypted_message = Crypto.encrypt_message(aes_key, :erlang.term_to_binary(message))
+
+      topic = participant_topic(room_id, receiver_name)
+      Bus.publish(topic, {:message, name, encrypted_message})
+    end)
+  end
+
+  defp render_message(%Message{type: :normal, content: content}) do
+    content
+  end
+
+  defp render_message(%Message{type: :render, content: content}) do
+    raw(content)
+  end
+
   defp room_topic(room_id) do
     "/room/#{room_id}"
   end
 
   defp participant_topic(room_id, participant_name) do
     "/room/#{room_id}/participant/#{participant_name}"
+  end
+
+  defp render_gif(url, width, height) do
+    "<img src=\"#{url}\" width=\"#{width}\" height=\"#{height}\" class=\"rounded\"/>"
   end
 end
