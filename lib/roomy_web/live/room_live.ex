@@ -24,7 +24,7 @@ defmodule RoomyWeb.RoomLive do
       field(:sender_id, String.t())
       field(:sender_name, String.t())
       field(:content, binary(), required: false)
-      field(:kind, :join | :leave, required: false)
+      field(:kind, :join | :leave | :gif, required: false)
       field(:sent_at, DateTime.t(), default: DateTime.utc_now())
     end
   end
@@ -36,7 +36,6 @@ defmodule RoomyWeb.RoomLive do
   # @TODO: Add GIPHY name in the gifs corner (for brand recognition)
 
   # Overall functionality
-  # @TODO: Add browser notifications on new messages
   # @TODO: Refreshing the page should keep you in the room with the history until you decide to leave the room
   # @TODO: Add delay message sending functionality
   # @TODO: Handle person leaving hte room with something like `unmount`
@@ -71,7 +70,7 @@ defmodule RoomyWeb.RoomLive do
         </div>
       </div>
     <% else %>
-      <div class="flex flex-col h-full">
+      <div id="notify" class="flex flex-col h-full" phx-hook="BrowserNotification">
         <header class="flex items-center justify-between px-4 h-12 shadow">
           <h1 class="text-xl">Roomy</h1>
           <button class="px-3 py-1 border rounded-lg border-slate-700 text-slate-700 hover:bg-slate-300 active:bg-slate-400">
@@ -296,7 +295,7 @@ defmodule RoomyWeb.RoomLive do
         %{assigns: %{id: id, name: name, room_id: room_id, participants: participants}} = socket
       ) do
     publish_message_to_all(
-      %Message{type: :render, sender_id: id, sender_name: name, content: gif_img},
+      %Message{type: :render, kind: :gif, sender_id: id, sender_name: name, content: gif_img},
       room_id,
       participants
     )
@@ -307,31 +306,53 @@ defmodule RoomyWeb.RoomLive do
   @impl true
   def handle_info(
         {Bus, {:message, id, encrypted_message} = data},
-        %{assigns: %{chat_history: history, name: my_name, participants: participants}} = socket
+        %{assigns: %{chat_history: history, id: my_id, name: my_name, participants: participants}} =
+          socket
       ) do
-    IO.inspect(data, label: "receiver: #{my_name}")
-    IO.inspect(participants, label: "receiver: #{my_name}")
+    %Participant{aes_key: aes_key} = Map.fetch!(participants, id)
 
-    %Participant{aes_key: aes_key} =
-      Map.fetch!(participants, id) |> IO.inspect(label: "sender of the message")
-
-    decrypted_message =
+    %Message{type: type, kind: kind, sender_id: sender_id, sender_name: sender_name} =
+      decrypted_message =
       aes_key
       |> Crypto.decrypt_message(encrypted_message)
       |> :erlang.binary_to_term()
-      |> IO.inspect(label: "decrypted message")
 
     new_socket =
       socket
       |> assign(chat_history: [decrypted_message | history])
       |> push_event("message:new", %{is_sender: true})
+      |> then(fn new_socket ->
+        if sender_id != my_id do
+          {title, body} =
+            case {type, kind} do
+              {:system, :join} ->
+                {"🔥 #{sender_name} joined the room!", "Come to say hi."}
+
+              {:system, :leave} ->
+                {"😔 #{sender_name} left the room!", nil}
+
+              {:render, :gif} ->
+                {"👀 #{sender_name} send a GIF!", "Come check it out!"}
+
+              {_, _} ->
+                {"💬 #{sender_name} send a new message!", "Open the app to see the message"}
+            end
+
+          push_event(new_socket, "trigger_notification", %{
+            title: title,
+            body: body
+          })
+        else
+          new_socket
+        end
+      end)
 
     {:noreply, new_socket}
   end
 
   @impl true
   def handle_info(
-        {Bus, {:join, id, name, public_key} = data},
+        {Bus, {:join, id, name, public_key}},
         %{
           assigns: %{
             id: my_id,
@@ -343,8 +364,6 @@ defmodule RoomyWeb.RoomLive do
           }
         } = socket
       ) do
-    IO.inspect(data, label: "receiver: #{my_name}")
-
     aes_key =
       my_private_key
       |> Crypto.generate_shared_secret(public_key)
@@ -364,7 +383,7 @@ defmodule RoomyWeb.RoomLive do
 
   @impl true
   def handle_info(
-        {Bus, {:handshake, id, name, public_key} = data},
+        {Bus, {:handshake, id, name, public_key}},
         %{
           assigns: %{
             id: my_id,
@@ -375,8 +394,6 @@ defmodule RoomyWeb.RoomLive do
           }
         } = socket
       ) do
-    IO.inspect(data, label: "receiver: #{my_name}")
-
     aes_key =
       my_private_key
       |> Crypto.generate_shared_secret(public_key)
@@ -396,7 +413,6 @@ defmodule RoomyWeb.RoomLive do
 
   @impl true
   def handle_info({Bus, {:leave, id}}, %{assigns: %{participants: participants}} = socket) do
-    # @TODO: Send a :leave type message to all participants
     {:noreply,
      assign(socket,
        participants:
@@ -411,7 +427,6 @@ defmodule RoomyWeb.RoomLive do
         _reason,
         %{assigns: %{id: id, name: name, room_id: room_id, participants: participants}}
       ) do
-    IO.inspect(name, label: "Terminate HERE")
     room_id |> room_topic() |> Bus.publish({:leave, id})
 
     publish_message_to_all(

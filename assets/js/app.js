@@ -46,6 +46,37 @@ Hooks.ScrollToBottom = {
   },
 };
 
+Hooks.BrowserNotification = {
+  mounted() {
+    this.handleEvent("trigger_notification", ({ title, body }) => {
+      if (!("Notification" in window)) {
+        console.error("Browser does not support notifications.");
+        return;
+      }
+
+      if (Notification.permission === "granted") {
+        this.showNotification(title, body);
+      } else if (Notification.permission !== "denied") {
+        Notification.requestPermission().then((permission) => {
+          if (permission === "granted") {
+            this.showNotification(title, body);
+          }
+        });
+      }
+    });
+  },
+
+  showNotification(title, body) {
+    const notification = new Notification(title, {
+      body: body || "You have a new notification!",
+    });
+
+    notification.onclick = () => {
+      console.log("Notification clicked!");
+    };
+  },
+};
+
 let csrfToken = document
   .querySelector("meta[name='csrf-token']")
   .getAttribute("content");
