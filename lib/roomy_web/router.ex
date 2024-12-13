@@ -19,6 +19,7 @@ defmodule RoomyWeb.Router do
 
     live_session :unauthenticated do
       live "/", HomeLive, :index
+      live "/room/join", JoinRoomLive, :index
       live "/room/:room_id", RoomLive, :index
     end
   end

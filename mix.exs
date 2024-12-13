@@ -38,8 +38,7 @@ defmodule Roomy.MixProject do
       {:postgrex, ">= 0.0.0"},
       {:phoenix_html, "~> 4.1"},
       {:phoenix_live_reload, "~> 1.2", only: :dev},
-      # TODO bump on release to {:phoenix_live_view, "~> 1.0.0"},
-      {:phoenix_live_view, "~> 1.0.0-rc.1", override: true},
+      {:phoenix_live_view, "~> 1.0.0", override: true},
       {:floki, ">= 0.30.0", only: :test},
       {:phoenix_live_dashboard, "~> 0.8.3"},
       {:esbuild, "~> 0.8", runtime: Mix.env() == :dev},
@@ -58,7 +57,8 @@ defmodule Roomy.MixProject do
       {:warm_fuzzy_thing, "~> 0.1.0"},
       {:fun_server, "~> 0.1.4"},
       {:tesla, "~> 1.9"},
-      {:hackney, "~> 1.20"}
+      {:hackney, "~> 1.20"},
+      {:elixir_uuid, "~> 1.2"}
     ]
   end
 
