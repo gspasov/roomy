@@ -48,7 +48,10 @@ defmodule RoomyWeb.RoomLive do
   def render(assigns) do
     ~H"""
     <%= if is_nil(@name) do %>
-      <div class="bg-gray-100 h-full flex items-center justify-center">
+      <div
+        class="bg-gray-100 h-full flex items-center justify-center"
+        phx-remove={JS.focus(to: "#message_box")}
+      >
         <div class="flex flex-col bg-white p-8 items-center gap-3 rounded-lg shadow-lg w-full max-w-md">
           <div>
             <h1 class="text-2xl font-semibold text-center text-gray-800 mb-6">
