@@ -44,9 +44,6 @@ defmodule RoomyWeb.RoomLive do
   # @TODO: Add 'seen' message functionality
   # @TODO: Refreshing the page should keep you in the room with the history until you decide to leave the room
 
-  # Bugs
-  # @TODO: Fix issue with using the same name
-
   @impl true
   def render(assigns) do
     ~H"""
