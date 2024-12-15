@@ -446,7 +446,7 @@ defmodule RoomyWeb.RoomLive do
       participants
     )
 
-    {:noreply, assign(socket, gif_dialog_open: false)}
+    {:noreply, socket}
   end
 
   @impl true
