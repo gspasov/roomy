@@ -91,7 +91,7 @@ defmodule RoomyWeb.RoomLive do
               <h2 class="px-8 bg-slate-400">Participants</h2>
               <div class="divide-y divide-slate-400">
                 <div
-                  :for={{name, active} <- fetch_names(@participants)}
+                  :for={{_, %Participant{id: id, name: name, active: active}} <- @participants}
                   class={[
                     "px-4 py-2",
                     if(active,
@@ -100,7 +100,7 @@ defmodule RoomyWeb.RoomLive do
                     )
                   ]}
                 >
-                  {name <> if(name == @name, do: " (You)", else: "")}
+                  {name <> if(id == @id, do: " (You)", else: "")}
                 </div>
               </div>
             </div>
@@ -567,7 +567,7 @@ defmodule RoomyWeb.RoomLive do
     updated_participants =
       Map.put(participants, id, %Participant{id: id, name: name, aes_key: aes_key})
 
-    if name != my_name do
+    if id != my_id do
       room_id
       |> participant_topic(id)
       |> Bus.publish({:handshake, my_id, my_name, my_public_key})
@@ -692,10 +692,6 @@ defmodule RoomyWeb.RoomLive do
       :join -> "Hooray #{sender_name} joined the chat at #{time}"
       :leave -> "#{sender_name} left the chat at #{time}"
     end
-  end
-
-  defp fetch_names(participants) do
-    Enum.map(participants, fn {_, %Participant{name: name, active: active}} -> {name, active} end)
   end
 
   defp fetch_sender_name(participants, sender_id) do
