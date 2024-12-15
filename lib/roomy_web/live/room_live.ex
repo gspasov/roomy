@@ -91,12 +91,19 @@ defmodule RoomyWeb.RoomLive do
               <h2 class="px-8 bg-slate-400">Participants</h2>
               <div class="divide-y divide-slate-400">
                 <div
-                  :for={{_, %Participant{id: id, name: name, active: active}} <- @participants}
+                  :for={
+                    %Participant{id: id, name: name, active: active} <-
+                      @participants
+                      |> Map.values()
+                      |> Enum.sort_by(fn %Participant{active: active, name: name} ->
+                        {not active, name}
+                      end)
+                  }
                   class={[
-                    "px-4 py-2",
+                    "px-4 py-2 cursor-default",
                     if(active,
-                      do: "cursor-pointer hover:bg-gray-400",
-                      else: "cursor-default text-gray-400"
+                      do: "hover:bg-gray-400",
+                      else: "text-gray-400"
                     )
                   ]}
                 >
