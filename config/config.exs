@@ -13,6 +13,8 @@ config :roomy,
 
 config :tesla, adapter: Tesla.Adapter.Hackney
 
+config :elixir, :time_zone_database, Tzdata.TimeZoneDatabase
+
 config :roomy, :giphy, api_key: System.get_env("GIPHY_API_KEY")
 
 # Configures the endpoint

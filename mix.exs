@@ -58,7 +58,8 @@ defmodule Roomy.MixProject do
       {:fun_server, "~> 0.1.4"},
       {:tesla, "~> 1.9"},
       {:hackney, "~> 1.20"},
-      {:elixir_uuid, "~> 1.2"}
+      {:elixir_uuid, "~> 1.2"},
+      {:tzdata, "~> 1.1"}
     ]
   end
 

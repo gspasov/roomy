@@ -14,7 +14,7 @@ defmodule Roomy.Crypto do
     :crypto.hash(:sha256, shared_secret)
   end
 
-  def encrypt_message(aes_key, message) do
+  def encrypt_message(message, aes_key) do
     iv = :crypto.strong_rand_bytes(@iv_length)
 
     {encrypted_message, tag} =
@@ -23,7 +23,7 @@ defmodule Roomy.Crypto do
     {iv, encrypted_message, tag}
   end
 
-  def decrypt_message(aes_key, {iv, encrypted_message, tag}) do
+  def decrypt_message({iv, encrypted_message, tag}, aes_key) do
     :crypto.crypto_one_time_aead(:aes_gcm, aes_key, iv, encrypted_message, "", tag, false)
   end
 end

@@ -1,4 +1,5 @@
 defmodule RoomyWeb.RoomLive do
+  alias RoomyWeb.Icon
   use RoomyWeb, :live_view
 
   alias Roomy.Giphy
@@ -8,10 +9,10 @@ defmodule RoomyWeb.RoomLive do
   defmodule Participant do
     use TypedStruct
 
-    typedstruct do
-      field(:id, String.t(), required: true)
-      field(:name, String.t(), required: true)
-      field(:aes_key, binary(), required: true)
+    typedstruct required: true do
+      field(:id, String.t())
+      field(:name, String.t())
+      field(:aes_key, binary())
       field(:active, boolean(), default: true)
     end
   end
@@ -19,13 +20,14 @@ defmodule RoomyWeb.RoomLive do
   defmodule Message do
     use TypedStruct
 
-    typedstruct do
-      field(:type, :normal | :render | :system, default: :normal)
+    typedstruct required: true do
+      field(:id, String.t())
+      field(:type, :text | :render | :system, default: :text)
+      field(:kind, :text | :destroy_after | :send_after | :join | :leave | :gif, default: :text)
       field(:sender_id, String.t())
-      field(:sender_name, String.t())
       field(:content, binary(), required: false)
-      field(:kind, :join | :leave | :gif, required: false)
-      field(:sent_at, DateTime.t(), default: DateTime.utc_now())
+      field(:execute_at, DateTime.t(), required: false)
+      field(:sent_at, DateTime.t())
     end
   end
 
@@ -36,9 +38,14 @@ defmodule RoomyWeb.RoomLive do
   # @TODO: Add GIPHY name in the gifs corner (for brand recognition)
 
   # Overall functionality
+  # @TODO: Ability to reply to a message
+  # @TODO: Show when a person is writing a message (while typing)
+  # @TODO: Show if person is online
+  # @TODO: Add 'seen' message functionality
   # @TODO: Refreshing the page should keep you in the room with the history until you decide to leave the room
-  # @TODO: Add delay message sending functionality
-  # @TODO: Handle person leaving hte room with something like `unmount`
+
+  # Bugs
+  # @TODO: Fix issue with using the same name
 
   @impl true
   def render(assigns) do
@@ -77,7 +84,8 @@ defmodule RoomyWeb.RoomLive do
             Copy invite
           </button>
         </header>
-        <div class="flex grow">
+        <div class="flex grow overflow-y-auto">
+          <%!-- Participants area --%>
           <div class="flex flex-col items-center justify-between bg-slate-300">
             <div class="grow">
               <h2 class="px-8 bg-slate-400">Participants</h2>
@@ -103,18 +111,24 @@ defmodule RoomyWeb.RoomLive do
               Leave
             </.link>
           </div>
+
+          <%!-- Chat area --%>
           <div class="flex flex-col grow">
             <div
               id="chat_history"
               class="flex flex-col gap-2 grow overflow-y-auto"
               phx-hook="ScrollToBottom"
             >
+              <%!-- Messages --%>
               <div
                 :for={
-                  {%Message{type: type, kind: kind, sender_name: sender_name, sent_at: sent_at} =
-                     message,
-                   index} <-
-                    @chat_history |> Enum.reverse() |> Enum.with_index()
+                  {%Message{
+                     type: type,
+                     kind: kind,
+                     sender_id: sender_id,
+                     sent_at: sent_at,
+                     execute_at: execute_at
+                   } = message, index} <- Enum.with_index(@chat_history)
                 }
                 key={"message-#{index}"}
                 class="flex flex-col gap-1"
@@ -123,18 +137,23 @@ defmodule RoomyWeb.RoomLive do
                   <div class="flex gap-2 items-center py-2 px-4 text-xs font-medium">
                     <span class="border-t grow"></span>
                     <div :if={kind == :join} class="text-green-600">
-                      {format_message(message)}
+                      {format_message(message, fetch_sender_name(@participants, sender_id))}
                     </div>
                     <div :if={kind == :leave} class="text-red-600">
-                      {format_message(message)}
+                      {format_message(message, fetch_sender_name(@participants, sender_id))}
                     </div>
                     <span class="border-t grow"></span>
                   </div>
                 <% else %>
-                  <div class="flex flex-col gap-1 px-4">
+                  <div class="flex flex-col gap-1 px-4 py-2 hover:bg-slate-200">
                     <div class="text-xs">
-                      <span class="font-semibold">{sender_name}</span>
-                      {Calendar.strftime(sent_at, "%Y/%m/%d %I:%M %p")}
+                      <span class="font-semibold">{fetch_sender_name(@participants, sender_id)}</span>
+                      {sent_at
+                      |> DateTime.shift_zone!(@timezone)
+                      |> Calendar.strftime("%Y-%m-%d %H:%M")}
+                      <span :if={kind == :destroy_after} class="text-xs font-semibold text-indigo-500">
+                        Self destroy in {DateTime.diff(execute_at, DateTime.utc_now())} seconds
+                      </span>
                     </div>
 
                     <p class="max-w-prose break-words">{render_message(message)}</p>
@@ -142,15 +161,28 @@ defmodule RoomyWeb.RoomLive do
                 <% end %>
               </div>
             </div>
+
+            <%!-- Message Input --%>
             <form
               class="relative pb-4 px-4 gap-4 mt-2"
               phx-submit="message_box:submit"
               phx-change="message_box:change"
             >
-              <div class={[
-                "absolute p-2 m-2 columns-2 gap-2 rounded bottom-full right-0 bg-slate-300 overflow-y-auto",
-                if(@gif_dialog_open, do: "", else: "hidden")
-              ]}>
+              <%!-- Gif Dialog --%>
+              <div
+                id="gif_dialog"
+                class={[
+                  "absolute min-w-96 min-h-96 m-2 columns-2 gap-2 rounded bottom-full right-0 bg-slate-300 overflow-y-auto hidden",
+                  if(not Enum.empty?(@gifs), do: "p-2")
+                ]}
+                phx-click-away={hide("#gif_dialog") |> JS.push("gif_dialog:toggle")}
+              >
+                <span
+                  :if={Enum.empty?(@gifs)}
+                  class="absolute w-full h-full flex items-center justify-center"
+                >
+                  <Icon.loading class="h-10 w-10 animate-spin bg-slate-300 text-indigo-500" />
+                </span>
                 <img
                   :for={
                     %Giphy{
@@ -170,6 +202,82 @@ defmodule RoomyWeb.RoomLive do
                   phx-value-gif={render_gif(medium_url, medium_width, medium_height)}
                 />
               </div>
+              <%!-- Message type dialog --%>
+              <div
+                id="message_type_dialog"
+                class="absolute px-4 py-2 m-2 flex flex-col gap-4 rounded bottom-full right-0 bg-slate-300 overflow-y-auto hidden"
+                phx-click-away={hide("#message_type_dialog")}
+              >
+                <p class="text-md font-semibold">Message Type</p>
+                <div class="flex flex-col gap-1">
+                  <div class="flex items-center gap-2">
+                    <Icon.chat />
+                    <span>Normal</span>
+                  </div>
+                  <button
+                    class={[
+                      "rounded-full h-10 w-10 text-white",
+                      if(@message_type == :text, do: "bg-indigo-500", else: "bg-gray-500")
+                    ]}
+                    type="button"
+                    phx-click="message_type:select"
+                    phx-value-type="text"
+                  >
+                    <Icon.chat class="m-auto" />
+                  </button>
+                </div>
+                <div class="flex flex-col gap-1">
+                  <div class="flex items-center gap-2">
+                    <Icon.clock_history />
+                    <span>Send after</span>
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <button
+                      :for={{variant, text, time} <- send_after_values()}
+                      class={[
+                        "rounded-full h-10 w-10 text-white text-xs",
+                        if(@message_type == :send_after and @message_variant == variant,
+                          do: "bg-indigo-500",
+                          else: "bg-gray-500"
+                        )
+                      ]}
+                      type="button"
+                      phx-click="message_type:select"
+                      phx-value-type="send_after"
+                      phx-value-variant={variant}
+                      phx-value-milliseconds={time}
+                    >
+                      {text}
+                    </button>
+                  </div>
+                </div>
+                <div class="flex flex-col gap-1">
+                  <div class="flex items-center gap-2">
+                    <Icon.stopwatch />
+                    <span>Self destroy after</span>
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <button
+                      :for={{variant, text, time} <- send_after_values()}
+                      class={[
+                        "rounded-full h-10 w-10 text-white text-xs",
+                        if(@message_type == :destroy_after and @message_variant == variant,
+                          do: "bg-indigo-500",
+                          else: "bg-gray-500"
+                        )
+                      ]}
+                      type="button"
+                      phx-click="message_type:select"
+                      phx-value-type="destroy_after"
+                      phx-value-variant={variant}
+                      phx-value-milliseconds={time}
+                    >
+                      {text}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
               <input
                 id="message_box"
                 type="text"
@@ -186,12 +294,18 @@ defmodule RoomyWeb.RoomLive do
                   if(@gif_dialog_open, do: "bg-indigo-200", else: "")
                 ]}
                 type="button"
-                phx-click="gif_dialog:toggle"
+                phx-click={show("#gif_dialog") |> JS.push("gif_dialog:toggle")}
               >
                 GIF
               </button>
-              <button class="absolute right-5 top-1 h-10 w-10 rounded-full bg-indigo-600 text-stone-100 hover:bg-indigo-500">
-                >
+              <button
+                class="absolute right-5 top-1 h-10 w-10 rounded-full bg-indigo-600 text-stone-100 hover:bg-indigo-500"
+                type="button"
+                phx-click={show("#message_type_dialog")}
+              >
+                <Icon.chat :if={@message_type == :text} class="m-auto" />
+                <Icon.clock_history :if={@message_type == :send_after} class="m-auto" />
+                <Icon.stopwatch :if={@message_type == :destroy_after} class="m-auto" />
               </button>
             </form>
           </div>
@@ -215,8 +329,12 @@ defmodule RoomyWeb.RoomLive do
         private_key: nil,
         room_id: room_id,
         gif_dialog_open: false,
+        message_type: :text,
+        message_variant: nil,
+        message_timer: nil,
         gifs: [],
-        giphy_client: Giphy.client()
+        giphy_client: Giphy.client(),
+        timezone: socket.private[:connect_params]["timezone"]
       )
 
     {:ok, new_socket}
@@ -251,19 +369,42 @@ defmodule RoomyWeb.RoomLive do
         %{
           assigns: %{
             id: id,
-            name: name,
             message_input: message,
             room_id: room_id,
-            participants: participants
+            participants: participants,
+            message_type: message_type,
+            message_variant: message_variant
           }
         } = socket
       ) do
+    execute_at =
+      case message_variant do
+        1 -> DateTime.utc_now() |> DateTime.add(10, :second)
+        2 -> DateTime.utc_now() |> DateTime.add(30, :second)
+        3 -> DateTime.utc_now() |> DateTime.add(1, :minute)
+        _ -> nil
+      end
+
     if String.trim(message) != "" do
-      publish_message_to_all(
-        %Message{sender_id: id, sender_name: name, content: message},
-        room_id,
-        participants
-      )
+      message = %Message{
+        id: UUID.uuid4(),
+        sender_id: id,
+        content: message,
+        kind: message_type,
+        execute_at: execute_at
+      }
+
+      case message_type do
+        :send_after ->
+          Process.send_after(
+            self(),
+            {:send_delayed_message, message},
+            DateTime.diff(execute_at, DateTime.utc_now(), :millisecond)
+          )
+
+        _ ->
+          publish_message_to_all(message, room_id, participants)
+      end
     end
 
     {:noreply, assign(socket, message_input: "")}
@@ -292,10 +433,15 @@ defmodule RoomyWeb.RoomLive do
   def handle_event(
         "send_gif",
         %{"gif" => gif_img},
-        %{assigns: %{id: id, name: name, room_id: room_id, participants: participants}} = socket
+        %{assigns: %{id: id, room_id: room_id, participants: participants}} = socket
       ) do
     publish_message_to_all(
-      %Message{type: :render, kind: :gif, sender_id: id, sender_name: name, content: gif_img},
+      %Message{
+        type: :render,
+        kind: :gif,
+        sender_id: id,
+        content: gif_img
+      },
       room_id,
       participants
     )
@@ -304,25 +450,74 @@ defmodule RoomyWeb.RoomLive do
   end
 
   @impl true
+  def handle_event("message_type:select", %{"type" => message_type} = params, socket) do
+    variant = params |> Map.get("variant", "1") |> String.to_integer()
+    milliseconds = params |> Map.get("milliseconds", "1") |> String.to_integer()
+
+    new_socket =
+      case message_type do
+        "text" ->
+          assign(socket, message_type: :text)
+
+        "send_after" ->
+          assign(socket,
+            message_type: :send_after,
+            message_variant: variant,
+            message_timer: milliseconds
+          )
+
+        "destroy_after" ->
+          assign(socket,
+            message_type: :destroy_after,
+            message_variant: variant,
+            message_timer: milliseconds
+          )
+      end
+
+    {:noreply, new_socket}
+  end
+
+  @impl true
   def handle_info(
-        {Bus, {:message, id, encrypted_message} = data},
-        %{assigns: %{chat_history: history, id: my_id, name: my_name, participants: participants}} =
+        {Bus, {:message, id, encrypted_message}},
+        %{assigns: %{chat_history: history, id: my_id, participants: participants}} =
           socket
       ) do
     %Participant{aes_key: aes_key} = Map.fetch!(participants, id)
 
-    %Message{type: type, kind: kind, sender_id: sender_id, sender_name: sender_name} =
+    %Message{type: type, kind: kind, sender_id: sender_id, execute_at: execute_at} =
       decrypted_message =
-      aes_key
-      |> Crypto.decrypt_message(encrypted_message)
+      encrypted_message
+      |> Crypto.decrypt_message(aes_key)
       |> :erlang.binary_to_term()
+
+    case {type, kind} do
+      {:text, :destroy_after} ->
+        Process.send_after(
+          self(),
+          {:self_destroy, decrypted_message},
+          DateTime.diff(execute_at, DateTime.utc_now(), :millisecond)
+        )
+
+      _ ->
+        nil
+    end
 
     new_socket =
       socket
-      |> assign(chat_history: [decrypted_message | history])
+      |> assign(
+        chat_history:
+          Enum.sort_by(
+            [decrypted_message | history],
+            fn %Message{sent_at: sent_at} -> sent_at end,
+            DateTime
+          )
+      )
       |> push_event("message:new", %{is_sender: true})
       |> then(fn new_socket ->
         if sender_id != my_id do
+          sender_name = fetch_sender_name(participants, sender_id)
+
           {title, body} =
             case {type, kind} do
               {:system, :join} ->
@@ -387,7 +582,6 @@ defmodule RoomyWeb.RoomLive do
         %{
           assigns: %{
             id: my_id,
-            name: my_name,
             room_id: room_id,
             participants: participants,
             private_key: my_private_key
@@ -404,7 +598,7 @@ defmodule RoomyWeb.RoomLive do
 
     publish_message(
       participant,
-      %Message{type: :system, kind: :join, sender_id: my_id, sender_name: my_name},
+      %Message{type: :system, kind: :join, sender_id: my_id},
       room_id
     )
 
@@ -423,14 +617,34 @@ defmodule RoomyWeb.RoomLive do
   end
 
   @impl true
+  def handle_info(
+        {:self_destroy, %Message{id: message_id}},
+        %{assigns: %{chat_history: messages}} = socket
+      ) do
+    updated_message_history =
+      Enum.drop_while(messages, fn %Message{id: id} -> id == message_id end)
+
+    {:noreply, assign(socket, chat_history: updated_message_history)}
+  end
+
+  @impl true
+  def handle_info(
+        {:send_delayed_message, %Message{} = message},
+        %{assigns: %{room_id: room_id, participants: participants}} = socket
+      ) do
+    publish_message_to_all(message, room_id, participants)
+    {:noreply, socket}
+  end
+
+  @impl true
   def terminate(
         _reason,
-        %{assigns: %{id: id, name: name, room_id: room_id, participants: participants}}
+        %{assigns: %{id: id, room_id: room_id, participants: participants}}
       ) do
     room_id |> room_topic() |> Bus.publish({:leave, id})
 
     publish_message_to_all(
-      %Message{type: :system, kind: :leave, sender_id: id, sender_name: name},
+      %Message{type: :system, kind: :leave, sender_id: id},
       room_id,
       participants
     )
@@ -447,7 +661,10 @@ defmodule RoomyWeb.RoomLive do
          %Message{sender_id: sender_id} = message,
          room_id
        ) do
-    encrypted_message = Crypto.encrypt_message(aes_key, :erlang.term_to_binary(message))
+    encrypted_message =
+      %Message{message | sent_at: DateTime.utc_now()}
+      |> :erlang.term_to_binary()
+      |> Crypto.encrypt_message(aes_key)
 
     topic = participant_topic(room_id, receiver_id)
     Bus.publish(topic, {:message, sender_id, encrypted_message})
@@ -461,12 +678,14 @@ defmodule RoomyWeb.RoomLive do
     content
   end
 
-  defp format_message(%Message{
-         type: :system,
-         kind: kind,
-         sender_name: sender_name,
-         sent_at: sent_at
-       }) do
+  defp format_message(
+         %Message{
+           type: :system,
+           kind: kind,
+           sent_at: sent_at
+         },
+         sender_name
+       ) do
     time = Calendar.strftime(sent_at, "%Y-%m-%d %I:%M %p")
 
     case kind do
@@ -476,9 +695,14 @@ defmodule RoomyWeb.RoomLive do
   end
 
   defp fetch_names(participants) do
-    participants
-    # |> Enum.filter(fn {_, %Participant{active: active}} -> active end)
-    |> Enum.map(fn {_, %Participant{name: name, active: active}} -> {name, active} end)
+    Enum.map(participants, fn {_, %Participant{name: name, active: active}} -> {name, active} end)
+  end
+
+  defp fetch_sender_name(participants, sender_id) do
+    {_, %Participant{name: name}} =
+      Enum.find(participants, fn {_, %Participant{id: id}} -> id == sender_id end)
+
+    name
   end
 
   defp room_topic(room_id) do
@@ -491,5 +715,9 @@ defmodule RoomyWeb.RoomLive do
 
   defp render_gif(url, width, height) do
     "<img src=\"#{url}\" width=\"#{width}\" height=\"#{height}\" class=\"rounded\"/>"
+  end
+
+  defp send_after_values do
+    [{1, "10s", :timer.seconds(10)}, {2, "30s", :timer.seconds(30)}, {3, "1m", :timer.minutes(1)}]
   end
 end
