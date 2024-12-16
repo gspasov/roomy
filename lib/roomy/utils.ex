@@ -7,4 +7,22 @@ defmodule Roomy.Utils do
     |> Enum.chunk_every(div(code_length, 3))
     |> Enum.join("-")
   end
+
+  def string_variations(string) do
+    string
+    |> String.to_charlist()
+    |> do_string_variations([])
+  end
+
+  defp do_string_variations([], acc), do: acc
+
+  defp do_string_variations([_ | t] = list, acc) do
+    list
+    |> Enum.with_index()
+    |> Enum.reduce([], fn {_, index}, acc ->
+      [to_string(Enum.drop(list, -index)) | acc]
+    end)
+    |> tl()
+    |> Kernel.++(do_string_variations(t, acc))
+  end
 end

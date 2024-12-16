@@ -21,6 +21,9 @@ defmodule Roomy.Application do
       RoomyWeb.Endpoint
     ]
 
+    # Load emojis ets table
+    Roomy.Emoji.load_table()
+
     # See https://hexdocs.pm/elixir/Supervisor.html
     # for other strategies and supported options
     opts = [strategy: :one_for_one, name: Roomy.Supervisor]

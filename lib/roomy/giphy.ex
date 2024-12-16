@@ -17,6 +17,15 @@ defmodule Roomy.Giphy do
     field(:preview_width, pos_integer())
   end
 
+  def client() do
+    middleware = [
+      Tesla.Middleware.JSON,
+      {Tesla.Middleware.BaseUrl, "https://api.giphy.com/v1/gifs"}
+    ]
+
+    Tesla.client(middleware)
+  end
+
   def trending_gifs(client, params \\ @default_params) do
     query_params = params |> Map.merge(@required_params) |> URI.encode_query()
 
@@ -53,14 +62,5 @@ defmodule Roomy.Giphy do
         Logger.error("[#{__MODULE__}] #{inspect(error)}")
         :error
     end
-  end
-
-  def client() do
-    middleware = [
-      Tesla.Middleware.JSON,
-      {Tesla.Middleware.BaseUrl, "https://api.giphy.com/v1/gifs"}
-    ]
-
-    Tesla.client(middleware)
   end
 end

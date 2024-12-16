@@ -46,6 +46,15 @@ Hooks.ScrollToBottom = {
   },
 };
 
+Hooks.MouseEnter = {
+  mounted() {
+    this.el.addEventListener("mouseenter", (event) => {
+      // Optionally handle mouse leave
+      this.pushEvent("mouse_enter", { id: this.el.id });
+    });
+  },
+};
+
 Hooks.BrowserNotification = {
   mounted() {
     this.handleEvent("trigger_notification", ({ title, body }) => {

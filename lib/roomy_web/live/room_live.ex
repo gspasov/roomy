@@ -1,4 +1,5 @@
 defmodule RoomyWeb.RoomLive do
+  alias Roomy.Emoji
   alias RoomyWeb.Icon
   use RoomyWeb, :live_view
 
@@ -36,6 +37,9 @@ defmodule RoomyWeb.RoomLive do
   # @TODO: Add scroll for Gifs
   # @TODO: Add search bar for Gifs
   # @TODO: Add GIPHY name in the gifs corner (for brand recognition)
+
+  # Emoji related
+  # @TODO: User can type/search emojies with `:` prompt
 
   # Overall functionality
   # @TODO: Ability to reply to a message
@@ -179,7 +183,7 @@ defmodule RoomyWeb.RoomLive do
               <div
                 id="gif_dialog"
                 class={[
-                  "absolute min-w-96 min-h-96 m-2 columns-2 gap-2 rounded bottom-full right-0 bg-slate-300 overflow-y-auto hidden",
+                  "absolute min-w-96 min-h-96 m-2 columns-2 gap-2 rounded bottom-full right-0 bg-slate-500 overflow-y-auto hidden",
                   if(not Enum.empty?(@gifs), do: "p-2")
                 ]}
                 phx-click-away={hide("#gif_dialog") |> JS.push("gif_dialog:toggle")}
@@ -188,7 +192,7 @@ defmodule RoomyWeb.RoomLive do
                   :if={Enum.empty?(@gifs)}
                   class="absolute w-full h-full flex items-center justify-center"
                 >
-                  <Icon.loading class="h-10 w-10 animate-spin bg-slate-300 text-indigo-500" />
+                  <Icon.loading class="h-10 w-10 animate-spin bg-slate-500 text-slate-200" />
                 </span>
                 <img
                   :for={
@@ -209,10 +213,34 @@ defmodule RoomyWeb.RoomLive do
                   phx-value-gif={render_gif(medium_url, medium_width, medium_height)}
                 />
               </div>
+
+              <%!-- Emojis Dialog --%>
+              <div
+                id="emoji_dialog"
+                class={[
+                  "absolute m-2 flex rounded bottom-full right-0 bg-slate-500 hidden"
+                ]}
+                phx-click-away={hide("#emoji_dialog")}
+              >
+                <h2 class="font-semibold text-3xl text-white px-4 pt-2">Emojis</h2>
+                <div class="max-w-96 max-h-96 m-2 mb-0 flex flex-col gap-10 overflow-y-auto">
+                  <div :for={{_group, emojis} <- @emoji_groups} class="p-2 grid grid-cols-7 gap-4">
+                    <span
+                      :for={%Emoji{unicode: unicode} <- emojis}
+                      class="text-3xl cursor-pointer transition ease-in-out delay-50 duration-300 hover:-translate-1 hover:scale-110"
+                      phx-click="add_emoji"
+                      phx-value-unicode={unicode}
+                    >
+                      {unicode}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
               <%!-- Message type dialog --%>
               <div
                 id="message_type_dialog"
-                class="absolute px-4 py-2 m-2 flex flex-col gap-4 rounded bottom-full right-0 bg-slate-300 overflow-y-auto hidden"
+                class="absolute px-4 py-2 m-2 flex flex-col gap-4 rounded bottom-full right-0 bg-slate-500 overflow-y-auto hidden"
                 phx-click-away={hide("#message_type_dialog")}
               >
                 <p class="text-md font-semibold">Message Type</p>
@@ -297,13 +325,24 @@ defmodule RoomyWeb.RoomLive do
               />
               <button
                 class={[
-                  "absolute right-16 top-2 p-2 text-xs rounded-md border border-indigo-500 text-indigo-500 hover:bg-indigo-100",
+                  "absolute right-28 top-2 p-2 font-semibold text-xs rounded-md border border-indigo-500 text-indigo-500 transition ease-in-out delay-50 duration-300 hover:-translate-1 hover:scale-110 hover:bg-indigo-100",
                   if(@gif_dialog_open, do: "bg-indigo-200", else: "")
                 ]}
                 type="button"
                 phx-click={show("#gif_dialog") |> JS.push("gif_dialog:toggle")}
               >
                 GIF
+              </button>
+              <button
+                id="emoji_button"
+                class={[
+                  "absolute right-16 top-1 text-indigo-500 text-3xl transition ease-in-out delay-50 duration-300 hover:-translate-1 hover:scale-110"
+                ]}
+                type="button"
+                phx-hook="MouseEnter"
+                phx-click={show("#emoji_dialog")}
+              >
+                {@emoji_button_unicode}
               </button>
               <button
                 class="absolute right-5 top-1 h-10 w-10 rounded-full bg-indigo-600 text-stone-100 hover:bg-indigo-500"
@@ -324,6 +363,8 @@ defmodule RoomyWeb.RoomLive do
 
   @impl true
   def mount(%{"room_id" => room_id} = _params, _session, socket) do
+    emoji_groups = Emoji.get_groups()
+
     new_socket =
       assign(socket,
         id: nil,
@@ -341,6 +382,8 @@ defmodule RoomyWeb.RoomLive do
         message_timer: nil,
         gifs: [],
         giphy_client: Giphy.client(),
+        emoji_groups: emoji_groups,
+        emoji_button_unicode: get_random_emoji_unicode(emoji_groups),
         timezone: socket.private[:connect_params]["timezone"]
       )
 
@@ -457,6 +500,15 @@ defmodule RoomyWeb.RoomLive do
   end
 
   @impl true
+  def handle_event(
+        "add_emoji",
+        %{"unicode" => unicode},
+        %{assigns: %{message_input: input}} = socket
+      ) do
+    {:noreply, assign(socket, message_input: input <> "#{unicode} ")}
+  end
+
+  @impl true
   def handle_event("message_type:select", %{"type" => message_type} = params, socket) do
     variant = params |> Map.get("variant", "1") |> String.to_integer()
     milliseconds = params |> Map.get("milliseconds", "1") |> String.to_integer()
@@ -482,6 +534,15 @@ defmodule RoomyWeb.RoomLive do
       end
 
     {:noreply, new_socket}
+  end
+
+  @impl true
+  def handle_event(
+        "mouse_enter",
+        %{"id" => "emoji_button"},
+        %{assigns: %{emoji_groups: groups}} = socket
+      ) do
+    {:noreply, assign(socket, emoji_button_unicode: get_random_emoji_unicode(groups))}
   end
 
   @impl true
@@ -682,7 +743,18 @@ defmodule RoomyWeb.RoomLive do
   end
 
   defp render_message(%Message{content: content}) do
-    content
+    emoji_enlarger(content)
+  end
+
+  defp emoji_enlarger(text) do
+    text
+    |> html_escape()
+    |> Phoenix.HTML.Safe.to_iodata()
+    |> IO.iodata_to_binary()
+    |> Emoji.replace_with(fn emoji_unicode ->
+      "<span class=\"text-2xl\">#{emoji_unicode}</span>"
+    end)
+    |> raw()
   end
 
   defp format_message(
@@ -706,6 +778,10 @@ defmodule RoomyWeb.RoomLive do
       Enum.find(participants, fn {_, %Participant{id: id}} -> id == sender_id end)
 
     name
+  end
+
+  defp get_random_emoji_unicode(%{0 => face_emojis}) do
+    Enum.random(face_emojis).unicode
   end
 
   defp room_topic(room_id) do
