@@ -24,7 +24,11 @@ defmodule RoomyWeb.RoomLive do
     typedstruct required: true do
       field(:id, String.t())
       field(:type, :text | :render | :system, default: :text)
-      field(:kind, :text | :destroy_after | :send_after | :join | :leave | :gif, default: :text)
+
+      field(:kind, :text | :destroy_after | :send_after | :join | :leave | :gif | :image,
+        default: :text
+      )
+
       field(:sender_id, String.t())
       field(:content, binary(), required: false)
       field(:execute_at, DateTime.t(), required: false)
@@ -42,11 +46,15 @@ defmodule RoomyWeb.RoomLive do
   # @TODO: User can type/search emojies with `:` prompt
 
   # Overall functionality
+  # @TODO: Pasting image url should display the image in the chat instead
+  # @TODO: Group messages send by the same user together
+  # @TODO: Ability to react to messages
   # @TODO: Ability to reply to a message
   # @TODO: Show when a person is writing a message (while typing)
   # @TODO: Show if person is online
   # @TODO: Add 'seen' message functionality
   # @TODO: Refreshing the page should keep you in the room with the history until you decide to leave the room
+  # @TODO: Make the UI prettier
 
   @impl true
   def render(assigns) do
@@ -320,6 +328,7 @@ defmodule RoomyWeb.RoomLive do
                 class="w-full h-12 rounded-3xl border-slate-300 border pr-12 px-5 focus:border-indigo-700"
                 placeholder="Type your message..."
                 phx-debounce="50"
+                phx-hook="PasteScreenshot"
                 autocomplete="off"
                 value={@message_input}
               />
@@ -543,6 +552,27 @@ defmodule RoomyWeb.RoomLive do
         %{assigns: %{emoji_groups: groups}} = socket
       ) do
     {:noreply, assign(socket, emoji_button_unicode: get_random_emoji_unicode(groups))}
+  end
+
+  @impl true
+  def handle_event(
+        "upload_screenshot",
+        %{"image" => base64_image},
+        %{assigns: %{id: sender_id, room_id: room_id, participants: participants}} = socket
+      ) do
+    publish_message_to_all(
+      %Message{
+        id: UUID.uuid4(),
+        type: :render,
+        kind: :image,
+        sender_id: sender_id,
+        content: "<img src=\"#{base64_image}\" alt=\"Screenshot\" class=\"rounded\" />"
+      },
+      room_id,
+      participants
+    )
+
+    {:noreply, socket}
   end
 
   @impl true

@@ -46,10 +46,35 @@ Hooks.ScrollToBottom = {
   },
 };
 
+Hooks.PasteScreenshot = {
+  mounted() {
+    this.el.addEventListener("paste", async (event) => {
+      // Check if the clipboard has image data
+      const items = event.clipboardData?.items;
+      if (!items) return;
+
+      for (const item of items) {
+        if (item.type.startsWith("image/")) {
+          const blob = item.getAsFile();
+          if (blob) {
+            // Convert the image blob to a Base64 string
+            const reader = new FileReader();
+            reader.onload = () => {
+              const base64Image = reader.result;
+              // Send Base64 data to the server
+              this.pushEvent("upload_screenshot", { image: base64Image });
+            };
+            reader.readAsDataURL(blob);
+          }
+        }
+      }
+    });
+  },
+};
+
 Hooks.MouseEnter = {
   mounted() {
     this.el.addEventListener("mouseenter", (event) => {
-      // Optionally handle mouse leave
       this.pushEvent("mouse_enter", { id: this.el.id });
     });
   },
