@@ -90,7 +90,7 @@ defmodule RoomyWeb.RoomLive do
       </div>
     <% else %>
       <div id="notify" class="flex flex-col h-full" phx-hook="BrowserNotification">
-        <header class="flex items-center justify-between px-4 h-12 shadow">
+        <header class="flex items-center justify-between px-4 h-12 flex-shrink-0 shadow">
           <h1 class="text-xl">Roomy</h1>
           <button class="px-3 py-1 border rounded-lg border-slate-700 text-slate-700 hover:bg-slate-300 active:bg-slate-400">
             Copy invite
