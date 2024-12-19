@@ -46,8 +46,8 @@ defmodule RoomyWeb.RoomLive do
   # @TODO: User can type/search emojies with `:` prompt
 
   # Overall functionality
+  # @TODO: Store encrypted messages in DB. Figure out how to encrypt/decrypt them efficiently for a group chat
   # @TODO: Pasting image url should display the image in the chat instead
-  # @TODO: Group messages send by the same user together
   # @TODO: Ability to react to messages
   # @TODO: Ability to reply to a message
   # @TODO: Show when a person is writing a message (while typing)
@@ -739,13 +739,15 @@ defmodule RoomyWeb.RoomLive do
         _reason,
         %{assigns: %{id: id, room_id: room_id, participants: participants}}
       ) do
-    room_id |> room_topic() |> Bus.publish({:leave, id})
+    if id do
+      room_id |> room_topic() |> Bus.publish({:leave, id})
 
-    publish_message_to_all(
-      %Message{type: :system, kind: :leave, sender_id: id},
-      room_id,
-      participants
-    )
+      publish_message_to_all(
+        %Message{type: :system, kind: :leave, sender_id: id},
+        room_id,
+        participants
+      )
+    end
   end
 
   defp publish_message_to_all(%Message{} = message, room_id, participants) do
