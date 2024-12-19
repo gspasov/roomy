@@ -92,7 +92,12 @@ defmodule RoomyWeb.RoomLive do
       <div id="notify" class="flex flex-col h-full" phx-hook="BrowserNotification">
         <header class="flex items-center justify-between px-4 h-12 flex-shrink-0 shadow">
           <h1 class="text-xl">Roomy</h1>
-          <button class="px-3 py-1 border rounded-lg border-slate-700 text-slate-700 hover:bg-slate-300 active:bg-slate-400">
+          <button
+            id="copy_room_invite_button"
+            class="px-3 py-1 border rounded-lg border-slate-700 text-slate-700 hover:bg-slate-300 active:bg-slate-400"
+            phx-hook="Clipboard"
+            value={build_room_join_url(@room_id)}
+          >
             Copy invite
           </button>
         </header>
@@ -830,5 +835,9 @@ defmodule RoomyWeb.RoomLive do
 
   defp send_after_values do
     [{1, "10s", :timer.seconds(10)}, {2, "30s", :timer.seconds(30)}, {3, "1m", :timer.minutes(1)}]
+  end
+
+  defp build_room_join_url(room_id) do
+    "http://localhost:4000/room/#{room_id}"
   end
 end

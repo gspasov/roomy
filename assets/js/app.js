@@ -72,6 +72,14 @@ Hooks.PasteScreenshot = {
   },
 };
 
+Hooks.Clipboard = {
+  mounted() {
+    this.el.addEventListener("click", () => {
+      navigator.clipboard.writeText(this.el.value);
+    });
+  },
+};
+
 Hooks.MouseEnter = {
   mounted() {
     this.el.addEventListener("mouseenter", (event) => {
