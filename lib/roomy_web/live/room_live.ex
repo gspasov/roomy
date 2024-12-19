@@ -411,14 +411,27 @@ defmodule RoomyWeb.RoomLive do
 
   @impl true
   def handle_event("name:submit", %{"name" => name}, %{assigns: %{room_id: room_id}} = socket) do
-    id = UUID.uuid4()
-    {public_key, private_key} = Crypto.generate_key_pair()
-    room_id |> room_topic() |> Bus.subscribe()
-    room_id |> participant_topic(id) |> Bus.subscribe()
-    room_id |> room_topic() |> Bus.publish({:join, id, name, public_key})
+    trimmed_name = String.trim(name)
 
-    {:noreply,
-     assign(socket, id: id, name: name, public_key: public_key, private_key: private_key)}
+    new_socket =
+      if String.length(trimmed_name) == 0 do
+        socket
+      else
+        id = UUID.uuid4()
+        {public_key, private_key} = Crypto.generate_key_pair()
+        room_id |> room_topic() |> Bus.subscribe()
+        room_id |> participant_topic(id) |> Bus.subscribe()
+        room_id |> room_topic() |> Bus.publish({:join, id, trimmed_name, public_key})
+
+        assign(socket,
+          id: id,
+          name: trimmed_name,
+          public_key: public_key,
+          private_key: private_key
+        )
+      end
+
+    {:noreply, new_socket}
   end
 
   @impl true
