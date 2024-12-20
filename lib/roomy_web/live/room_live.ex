@@ -6,6 +6,7 @@ defmodule RoomyWeb.RoomLive do
   alias Roomy.Giphy
   alias Roomy.Crypto
   alias Roomy.Bus
+  alias Phoenix.LiveView.AsyncResult
 
   defmodule Participant do
     use TypedStruct
@@ -36,6 +37,21 @@ defmodule RoomyWeb.RoomLive do
     end
   end
 
+  defmodule LocalStorage do
+    use TypedStruct
+
+    typedstruct required: true do
+      field(:id, String.t())
+      field(:name, String.t())
+      field(:message_input, String.t())
+      field(:chat_history, [Message.t()])
+      field(:participants, [Participant.t()])
+      field(:public_key, String.t())
+      field(:private_key, String.t())
+      field(:room_id, String.t())
+    end
+  end
+
   # GIF related todos
   # @TODO: Store in DB all Gifs so that we don't use that much the API
   # @TODO: Add scroll for Gifs
@@ -53,325 +69,354 @@ defmodule RoomyWeb.RoomLive do
   # @TODO: Show when a person is writing a message (while typing)
   # @TODO: Show if person is online
   # @TODO: Add 'seen' message functionality
-  # @TODO: Refreshing the page should keep you in the room with the history until you decide to leave the room
   # @TODO: Make the UI prettier
 
   @impl true
   def render(assigns) do
     ~H"""
-    <%= if is_nil(@name) do %>
-      <div
-        class="bg-gray-100 h-full flex items-center justify-center"
-        phx-remove={JS.focus(to: "#message_box")}
-      >
-        <div class="flex flex-col bg-white p-8 items-center gap-3 rounded-lg shadow-lg w-full max-w-md">
-          <div>
-            <h1 class="text-2xl font-semibold text-center text-gray-800 mb-6">
-              Welcome to Room {@room_id}
-            </h1>
-          </div>
-          <.form :let={f} class="flex flex-col gap-3" for={%{}} phx-submit="name:submit">
-            <.input
-              field={f[:name]}
-              type="text"
-              label="Name"
-              placeholder="Your name"
-              autofocus
-              required
-            />
-            <.button class="bg-indigo-500 text-white py-2 px-4 rounded-lg shadow-md hover:bg-indigo-600 focus:outline-none">
-              Enter
-            </.button>
-          </.form>
-          <.link navigate={~p"/"} class="underline text-indigo-500 hover:text-indigo-600 text-xs">
-            Back
-          </.link>
-        </div>
-      </div>
-    <% else %>
-      <div id="notify" class="flex flex-col h-full" phx-hook="BrowserNotification">
-        <header class="flex items-center justify-between px-4 h-12 flex-shrink-0 shadow">
-          <h1 class="text-xl">Roomy</h1>
+    <div class="h-full" id="local_storage" phx-hook="LocalStorage">
+      <.modal id="confirm_modal">
+        <h2 class="text-xl font-semibold text-gray-800">Leave Room</h2>
+        <p class="text-gray-600 mt-2">
+          Are you sure you want to leave this room? Doing so will delete your chat history. <br />
+          This cannot be undone.
+        </p>
+        <div class="flex justify-end space-x-3 mt-6">
           <button
-            id="copy_room_invite_button"
-            class="px-3 py-1 border rounded-lg border-slate-700 text-slate-700 hover:bg-slate-300 active:bg-slate-400"
-            phx-hook="Clipboard"
-            value={build_room_join_url(@room_id)}
+            class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition"
+            phx-click={hide_modal("confirm_modal")}
           >
-            Copy invite
+            Cancel
           </button>
-        </header>
-        <div class="flex grow overflow-y-auto">
-          <%!-- Participants area --%>
-          <div class="flex flex-col items-center justify-between bg-slate-300">
-            <div class="grow">
-              <h2 class="px-8 bg-slate-400">Participants</h2>
-              <div class="divide-y divide-slate-400">
-                <div
-                  :for={
-                    %Participant{id: id, name: name, active: active} <-
-                      @participants
-                      |> Map.values()
-                      |> Enum.sort_by(fn %Participant{active: active, name: name} ->
-                        {not active, name}
-                      end)
-                  }
-                  class={[
-                    "px-4 py-2 cursor-default",
-                    if(active,
-                      do: "hover:bg-gray-400",
-                      else: "text-gray-400"
-                    )
-                  ]}
-                >
-                  {name <> if(id == @id, do: " (You)", else: "")}
-                </div>
+          <button
+            class="px-4 py-2 bg-indigo-500 text-white rounded-md hover:bg-indigo-600 transition"
+            phx-click="leave_room"
+          >
+            Confirm
+          </button>
+        </div>
+      </.modal>
+      <.async_result :let={name} assign={@name}>
+        <%= if is_nil(name) do %>
+          <div
+            class="bg-gray-100 flex items-center h-full justify-center"
+            phx-remove={JS.focus(to: "#message_box")}
+          >
+            <div class="flex flex-col bg-white p-8 items-center gap-3 rounded-lg shadow-lg w-full max-w-md">
+              <div>
+                <h1 class="text-2xl font-semibold text-center text-gray-800 mb-6">
+                  Welcome to Room {@room_id}
+                </h1>
               </div>
-            </div>
-            <.link
-              navigate={~p"/"}
-              class="mx-4 my-4 px-4 py-1 border rounded-lg border-red-600 text-red-600 hover:text-red-700 hover:border-red-700"
-            >
-              Leave
-            </.link>
-          </div>
-
-          <%!-- Chat area --%>
-          <div class="flex flex-col grow">
-            <div
-              id="chat_history"
-              class="flex flex-col gap-2 grow overflow-y-auto"
-              phx-hook="ScrollToBottom"
-            >
-              <%!-- Messages --%>
-              <div
-                :for={
-                  {%Message{
-                     type: type,
-                     kind: kind,
-                     sender_id: sender_id,
-                     sent_at: sent_at,
-                     execute_at: execute_at
-                   } = message, index} <- Enum.with_index(@chat_history)
-                }
-                key={"message-#{index}"}
-                class="flex flex-col gap-1"
-              >
-                <%= if type == :system do %>
-                  <div class="flex gap-2 items-center py-2 px-4 text-xs font-medium">
-                    <span class="border-t grow"></span>
-                    <div :if={kind == :join} class="text-green-600">
-                      {format_message(message, fetch_sender_name(@participants, sender_id))}
-                    </div>
-                    <div :if={kind == :leave} class="text-red-600">
-                      {format_message(message, fetch_sender_name(@participants, sender_id))}
-                    </div>
-                    <span class="border-t grow"></span>
-                  </div>
-                <% else %>
-                  <div class="flex flex-col gap-1 px-4 py-2 hover:bg-slate-200">
-                    <div class="text-xs">
-                      <span class="font-semibold">{fetch_sender_name(@participants, sender_id)}</span>
-                      {sent_at
-                      |> DateTime.shift_zone!(@timezone)
-                      |> Calendar.strftime("%Y-%m-%d %H:%M")}
-                      <span :if={kind == :destroy_after} class="text-xs font-semibold text-indigo-500">
-                        Self destroy in {DateTime.diff(execute_at, DateTime.utc_now())} seconds
-                      </span>
-                    </div>
-
-                    <p class="max-w-prose break-words">{render_message(message)}</p>
-                  </div>
-                <% end %>
-              </div>
-            </div>
-
-            <%!-- Message Input --%>
-            <form
-              class="relative pb-4 px-4 gap-4 mt-2"
-              phx-submit="message_box:submit"
-              phx-change="message_box:change"
-            >
-              <%!-- Gif Dialog --%>
-              <div
-                id="gif_dialog"
-                class={[
-                  "absolute min-w-96 min-h-96 m-2 columns-2 gap-2 rounded bottom-full right-0 bg-slate-500 overflow-y-auto hidden",
-                  if(not Enum.empty?(@gifs), do: "p-2")
-                ]}
-                phx-click-away={hide("#gif_dialog") |> JS.push("gif_dialog:toggle")}
-              >
-                <span
-                  :if={Enum.empty?(@gifs)}
-                  class="absolute w-full h-full flex items-center justify-center"
-                >
-                  <Icon.loading class="h-10 w-10 animate-spin bg-slate-500 text-slate-200" />
-                </span>
-                <img
-                  :for={
-                    %Giphy{
-                      preview_url: preview_url,
-                      preview_width: preview_width,
-                      preview_height: preview_height,
-                      medium_url: medium_url,
-                      medium_width: medium_width,
-                      medium_height: medium_height
-                    } <- @gifs
-                  }
-                  class="rounded mb-2 box-border cursor-pointer hover:border-2 hover:border-indigo-500"
-                  src={preview_url}
-                  height={to_string(preview_height)}
-                  width={to_string(preview_width)}
-                  phx-click="send_gif"
-                  phx-value-gif={render_gif(medium_url, medium_width, medium_height)}
+              <.form :let={f} class="flex flex-col gap-3" for={%{}} phx-submit="name:submit">
+                <.input
+                  field={f[:name]}
+                  type="text"
+                  label="Name"
+                  placeholder="Your name"
+                  autofocus
+                  required
                 />
-              </div>
-
-              <%!-- Emojis Dialog --%>
-              <div
-                id="emoji_dialog"
-                class={[
-                  "absolute m-2 flex rounded bottom-full right-0 bg-slate-500 hidden"
-                ]}
-                phx-click-away={hide("#emoji_dialog")}
+                <.button class="bg-indigo-500 text-white py-2 px-4 rounded-lg shadow-md hover:bg-indigo-600 focus:outline-none">
+                  Enter
+                </.button>
+              </.form>
+              <.link navigate={~p"/"} class="underline text-indigo-500 hover:text-indigo-600 text-xs">
+                Back
+              </.link>
+            </div>
+          </div>
+        <% else %>
+          <div id="notify" class="flex flex-col h-full" phx-hook="BrowserNotification">
+            <header class="flex items-center justify-between px-4 h-12 flex-shrink-0 shadow">
+              <h1 class="text-xl">Roomy</h1>
+              <button
+                id="copy_room_invite_button"
+                class="px-3 py-1 border rounded-lg border-slate-700 text-slate-700 hover:bg-slate-300 active:bg-slate-400"
+                phx-hook="Clipboard"
+                value={build_room_join_url(@room_id)}
               >
-                <h2 class="font-semibold text-3xl text-white px-4 pt-2">Emojis</h2>
-                <div class="max-w-96 max-h-96 m-2 mb-0 flex flex-col gap-10 overflow-y-auto">
-                  <div :for={{_group, emojis} <- @emoji_groups} class="p-2 grid grid-cols-7 gap-4">
-                    <span
-                      :for={%Emoji{unicode: unicode} <- emojis}
-                      class="text-3xl cursor-pointer transition ease-in-out delay-50 duration-300 hover:-translate-1 hover:scale-110"
-                      phx-click="add_emoji"
-                      phx-value-unicode={unicode}
+                Copy invite
+              </button>
+            </header>
+            <div class="flex grow overflow-y-auto">
+              <%!-- Participants area --%>
+              <div class="flex flex-col items-center justify-between bg-slate-300">
+                <div class="grow">
+                  <h2 class="px-8 bg-slate-400">Participants</h2>
+                  <div class="divide-y divide-slate-400">
+                    <div
+                      :for={
+                        %Participant{id: id, name: name, active: active} <-
+                          @participants
+                          |> Map.values()
+                          |> Enum.sort_by(fn %Participant{active: active, name: name} ->
+                            {not active, name}
+                          end)
+                      }
+                      class={[
+                        "px-4 py-2 cursor-default",
+                        if(active,
+                          do: "hover:bg-gray-400",
+                          else: "text-gray-400"
+                        )
+                      ]}
                     >
-                      {unicode}
-                    </span>
+                      {name <> if(id == @id, do: " (You)", else: "")}
+                    </div>
                   </div>
                 </div>
+                <button
+                  class="mx-4 my-4 px-4 py-1.5 py-1 border rounded-md border-red-600 text-red-600 hover:text-red-700 hover:border-red-700"
+                  phx-click={show_modal("confirm_modal")}
+                >
+                  Leave
+                </button>
               </div>
 
-              <%!-- Message type dialog --%>
-              <div
-                id="message_type_dialog"
-                class="absolute px-4 py-2 m-2 flex flex-col gap-4 rounded bottom-full right-0 bg-slate-500 overflow-y-auto hidden"
-                phx-click-away={hide("#message_type_dialog")}
-              >
-                <p class="text-md font-semibold">Message Type</p>
-                <div class="flex flex-col gap-1">
-                  <div class="flex items-center gap-2">
-                    <Icon.chat />
-                    <span>Normal</span>
+              <%!-- Chat area --%>
+              <div class="flex flex-col grow">
+                <div
+                  id="chat_history"
+                  class="flex flex-col gap-2 grow overflow-y-auto"
+                  phx-hook="ScrollToBottom"
+                >
+                  <%!-- Messages --%>
+                  <div
+                    :for={
+                      {%Message{
+                         type: type,
+                         kind: kind,
+                         sender_id: sender_id,
+                         sent_at: sent_at,
+                         execute_at: execute_at
+                       } = message, index} <- Enum.with_index(@chat_history)
+                    }
+                    key={"message-#{index}"}
+                    class="flex flex-col gap-1"
+                  >
+                    <%= if type == :system do %>
+                      <div class="flex gap-2 items-center py-2 px-4 text-xs font-medium">
+                        <span class="border-t grow"></span>
+                        <div :if={kind == :join} class="text-green-600">
+                          {format_message(message, fetch_sender_name(@participants, sender_id))}
+                        </div>
+                        <div :if={kind == :leave} class="text-red-600">
+                          {format_message(message, fetch_sender_name(@participants, sender_id))}
+                        </div>
+                        <span class="border-t grow"></span>
+                      </div>
+                    <% else %>
+                      <div class="flex flex-col gap-1 px-4 py-2 hover:bg-slate-200">
+                        <div class="text-xs">
+                          <span class="font-semibold">
+                            {fetch_sender_name(@participants, sender_id)}
+                          </span>
+                          {sent_at
+                          |> DateTime.shift_zone!(@timezone)
+                          |> Calendar.strftime("%Y-%m-%d %H:%M")}
+                          <span
+                            :if={kind == :destroy_after}
+                            class="text-xs font-semibold text-indigo-500"
+                          >
+                            Self destroy in {DateTime.diff(execute_at, DateTime.utc_now())} seconds
+                          </span>
+                        </div>
+
+                        <p class="max-w-prose break-words">{render_message(message)}</p>
+                      </div>
+                    <% end %>
                   </div>
+                </div>
+
+                <%!-- Message Input --%>
+                <form
+                  class="relative pb-4 px-4 gap-4 mt-2"
+                  phx-submit="message_box:submit"
+                  phx-change="message_box:change"
+                >
+                  <%!-- Gif Dialog --%>
+                  <div
+                    id="gif_dialog"
+                    class={[
+                      "absolute min-w-96 min-h-96 m-2 columns-2 gap-2 rounded bottom-full right-0 bg-slate-500 overflow-y-auto hidden",
+                      if(not Enum.empty?(@gifs), do: "p-2")
+                    ]}
+                    phx-click-away={hide("#gif_dialog") |> JS.push("gif_dialog:toggle")}
+                  >
+                    <span
+                      :if={Enum.empty?(@gifs)}
+                      class="absolute w-full h-full flex items-center justify-center"
+                    >
+                      <Icon.loading class="h-10 w-10 animate-spin bg-slate-500 text-slate-200" />
+                    </span>
+                    <img
+                      :for={
+                        %Giphy{
+                          preview_url: preview_url,
+                          preview_width: preview_width,
+                          preview_height: preview_height,
+                          medium_url: medium_url,
+                          medium_width: medium_width,
+                          medium_height: medium_height
+                        } <- @gifs
+                      }
+                      class="rounded mb-2 box-border cursor-pointer hover:border-2 hover:border-indigo-500"
+                      src={preview_url}
+                      height={to_string(preview_height)}
+                      width={to_string(preview_width)}
+                      phx-click="send_gif"
+                      phx-value-gif={render_gif(medium_url, medium_width, medium_height)}
+                    />
+                  </div>
+
+                  <%!-- Emojis Dialog --%>
+                  <div
+                    id="emoji_dialog"
+                    class={[
+                      "absolute m-2 flex rounded bottom-full right-0 bg-slate-500 hidden"
+                    ]}
+                    phx-click-away={hide("#emoji_dialog")}
+                  >
+                    <h2 class="font-semibold text-3xl text-white px-4 pt-2">Emojis</h2>
+                    <div class="max-w-96 max-h-96 m-2 mb-0 flex flex-col gap-10 overflow-y-auto">
+                      <div :for={{_group, emojis} <- @emoji_groups} class="p-2 grid grid-cols-7 gap-4">
+                        <span
+                          :for={%Emoji{unicode: unicode} <- emojis}
+                          class="text-3xl cursor-pointer transition ease-in-out delay-50 duration-300 hover:-translate-1 hover:scale-110"
+                          phx-click="add_emoji"
+                          phx-value-unicode={unicode}
+                        >
+                          {unicode}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <%!-- Message type dialog --%>
+                  <div
+                    id="message_type_dialog"
+                    class="absolute px-4 py-2 m-2 flex flex-col gap-4 rounded bottom-full right-0 bg-slate-500 overflow-y-auto hidden"
+                    phx-click-away={hide("#message_type_dialog")}
+                  >
+                    <p class="text-md font-semibold">Message Type</p>
+                    <div class="flex flex-col gap-1">
+                      <div class="flex items-center gap-2">
+                        <Icon.chat />
+                        <span>Normal</span>
+                      </div>
+                      <button
+                        class={[
+                          "rounded-full h-10 w-10 text-white",
+                          if(@message_type == :text, do: "bg-indigo-500", else: "bg-gray-500")
+                        ]}
+                        type="button"
+                        phx-click="message_type:select"
+                        phx-value-type="text"
+                      >
+                        <Icon.chat class="m-auto" />
+                      </button>
+                    </div>
+                    <div class="flex flex-col gap-1">
+                      <div class="flex items-center gap-2">
+                        <Icon.clock_history />
+                        <span>Send after</span>
+                      </div>
+                      <div class="flex items-center gap-2">
+                        <button
+                          :for={{variant, text, time} <- send_after_values()}
+                          class={[
+                            "rounded-full h-10 w-10 text-white text-xs",
+                            if(@message_type == :send_after and @message_variant == variant,
+                              do: "bg-indigo-500",
+                              else: "bg-gray-500"
+                            )
+                          ]}
+                          type="button"
+                          phx-click="message_type:select"
+                          phx-value-type="send_after"
+                          phx-value-variant={variant}
+                          phx-value-milliseconds={time}
+                        >
+                          {text}
+                        </button>
+                      </div>
+                    </div>
+                    <div class="flex flex-col gap-1">
+                      <div class="flex items-center gap-2">
+                        <Icon.stopwatch />
+                        <span>Self destroy after</span>
+                      </div>
+                      <div class="flex items-center gap-2">
+                        <button
+                          :for={{variant, text, time} <- send_after_values()}
+                          class={[
+                            "rounded-full h-10 w-10 text-white text-xs",
+                            if(@message_type == :destroy_after and @message_variant == variant,
+                              do: "bg-indigo-500",
+                              else: "bg-gray-500"
+                            )
+                          ]}
+                          type="button"
+                          phx-click="message_type:select"
+                          phx-value-type="destroy_after"
+                          phx-value-variant={variant}
+                          phx-value-milliseconds={time}
+                        >
+                          {text}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <input
+                    id="message_box"
+                    type="text"
+                    name="message"
+                    class="w-full h-12 rounded-3xl border-slate-300 border pr-12 px-5 focus:border-indigo-700"
+                    placeholder="Type your message..."
+                    phx-debounce="50"
+                    phx-hook="PasteScreenshot"
+                    autocomplete="off"
+                    value={@message_input}
+                  />
                   <button
                     class={[
-                      "rounded-full h-10 w-10 text-white",
-                      if(@message_type == :text, do: "bg-indigo-500", else: "bg-gray-500")
+                      "absolute right-28 top-2 p-2 font-semibold text-xs rounded-md border border-indigo-500 text-indigo-500 transition ease-in-out delay-50 duration-300 hover:-translate-1 hover:scale-110 hover:bg-indigo-100",
+                      if(@gif_dialog_open, do: "bg-indigo-200", else: "")
                     ]}
                     type="button"
-                    phx-click="message_type:select"
-                    phx-value-type="text"
+                    phx-click={show("#gif_dialog") |> JS.push("gif_dialog:toggle")}
                   >
-                    <Icon.chat class="m-auto" />
+                    GIF
                   </button>
-                </div>
-                <div class="flex flex-col gap-1">
-                  <div class="flex items-center gap-2">
-                    <Icon.clock_history />
-                    <span>Send after</span>
-                  </div>
-                  <div class="flex items-center gap-2">
-                    <button
-                      :for={{variant, text, time} <- send_after_values()}
-                      class={[
-                        "rounded-full h-10 w-10 text-white text-xs",
-                        if(@message_type == :send_after and @message_variant == variant,
-                          do: "bg-indigo-500",
-                          else: "bg-gray-500"
-                        )
-                      ]}
-                      type="button"
-                      phx-click="message_type:select"
-                      phx-value-type="send_after"
-                      phx-value-variant={variant}
-                      phx-value-milliseconds={time}
-                    >
-                      {text}
-                    </button>
-                  </div>
-                </div>
-                <div class="flex flex-col gap-1">
-                  <div class="flex items-center gap-2">
-                    <Icon.stopwatch />
-                    <span>Self destroy after</span>
-                  </div>
-                  <div class="flex items-center gap-2">
-                    <button
-                      :for={{variant, text, time} <- send_after_values()}
-                      class={[
-                        "rounded-full h-10 w-10 text-white text-xs",
-                        if(@message_type == :destroy_after and @message_variant == variant,
-                          do: "bg-indigo-500",
-                          else: "bg-gray-500"
-                        )
-                      ]}
-                      type="button"
-                      phx-click="message_type:select"
-                      phx-value-type="destroy_after"
-                      phx-value-variant={variant}
-                      phx-value-milliseconds={time}
-                    >
-                      {text}
-                    </button>
-                  </div>
-                </div>
+                  <button
+                    id="emoji_button"
+                    class={[
+                      "absolute right-16 top-1 text-indigo-500 text-3xl transition ease-in-out delay-50 duration-300 hover:-translate-1 hover:scale-110"
+                    ]}
+                    type="button"
+                    phx-hook="MouseEnter"
+                    phx-click={show("#emoji_dialog")}
+                  >
+                    {@emoji_button_unicode}
+                  </button>
+                  <button
+                    class="absolute right-5 top-1 h-10 w-10 rounded-full bg-indigo-600 text-stone-100 hover:bg-indigo-500"
+                    type="button"
+                    phx-click={show("#message_type_dialog")}
+                  >
+                    <Icon.chat :if={@message_type == :text} class="m-auto" />
+                    <Icon.clock_history :if={@message_type == :send_after} class="m-auto" />
+                    <Icon.stopwatch :if={@message_type == :destroy_after} class="m-auto" />
+                  </button>
+                </form>
               </div>
-
-              <input
-                id="message_box"
-                type="text"
-                name="message"
-                class="w-full h-12 rounded-3xl border-slate-300 border pr-12 px-5 focus:border-indigo-700"
-                placeholder="Type your message..."
-                phx-debounce="50"
-                phx-hook="PasteScreenshot"
-                autocomplete="off"
-                value={@message_input}
-              />
-              <button
-                class={[
-                  "absolute right-28 top-2 p-2 font-semibold text-xs rounded-md border border-indigo-500 text-indigo-500 transition ease-in-out delay-50 duration-300 hover:-translate-1 hover:scale-110 hover:bg-indigo-100",
-                  if(@gif_dialog_open, do: "bg-indigo-200", else: "")
-                ]}
-                type="button"
-                phx-click={show("#gif_dialog") |> JS.push("gif_dialog:toggle")}
-              >
-                GIF
-              </button>
-              <button
-                id="emoji_button"
-                class={[
-                  "absolute right-16 top-1 text-indigo-500 text-3xl transition ease-in-out delay-50 duration-300 hover:-translate-1 hover:scale-110"
-                ]}
-                type="button"
-                phx-hook="MouseEnter"
-                phx-click={show("#emoji_dialog")}
-              >
-                {@emoji_button_unicode}
-              </button>
-              <button
-                class="absolute right-5 top-1 h-10 w-10 rounded-full bg-indigo-600 text-stone-100 hover:bg-indigo-500"
-                type="button"
-                phx-click={show("#message_type_dialog")}
-              >
-                <Icon.chat :if={@message_type == :text} class="m-auto" />
-                <Icon.clock_history :if={@message_type == :send_after} class="m-auto" />
-                <Icon.stopwatch :if={@message_type == :destroy_after} class="m-auto" />
-              </button>
-            </form>
+            </div>
           </div>
-        </div>
-      </div>
-    <% end %>
+        <% end %>
+      </.async_result>
+    </div>
     """
   end
 
@@ -382,8 +427,7 @@ defmodule RoomyWeb.RoomLive do
     new_socket =
       assign(socket,
         id: nil,
-        name: nil,
-        name_input: "",
+        name: AsyncResult.loading(),
         message_input: "",
         chat_history: [],
         participants: %{},
@@ -410,6 +454,52 @@ defmodule RoomyWeb.RoomLive do
   end
 
   @impl true
+  def handle_event("restore_from_local_storage", %{"value" => value}, socket) do
+    IO.inspect(value, label: "here")
+
+    new_socket =
+      if value do
+        %LocalStorage{
+          id: id,
+          name: name,
+          message_input: message_input,
+          chat_history: chat_history,
+          participants: participants,
+          public_key: public_key,
+          private_key: private_key,
+          room_id: room_id
+        } = value |> Base.decode64!() |> :erlang.binary_to_term()
+
+        room_id |> room_topic() |> Bus.subscribe()
+        participant_topic = participant_topic(room_id, id)
+        Bus.subscribe(participant_topic)
+
+        participant_topic
+        |> Bus.get_subscribers()
+        |> length()
+        |> Kernel.==(1)
+        |> if do
+          room_id |> room_topic() |> Bus.publish({:join, id, name, public_key})
+        end
+
+        assign(socket,
+          id: id,
+          name: AsyncResult.ok(name),
+          message_input: message_input,
+          chat_history: chat_history,
+          participants: participants,
+          public_key: public_key,
+          private_key: private_key,
+          room_id: room_id
+        )
+      else
+        assign(socket, name: AsyncResult.ok(nil))
+      end
+
+    {:noreply, new_socket}
+  end
+
+  @impl true
   def handle_event("name:submit", %{"name" => name}, %{assigns: %{room_id: room_id}} = socket) do
     trimmed_name = String.trim(name)
 
@@ -425,7 +515,7 @@ defmodule RoomyWeb.RoomLive do
 
         assign(socket,
           id: id,
-          name: trimmed_name,
+          name: AsyncResult.ok(trimmed_name),
           public_key: public_key,
           private_key: private_key
         )
@@ -594,6 +684,16 @@ defmodule RoomyWeb.RoomLive do
   end
 
   @impl true
+  def handle_event("leave_room", _params, socket) do
+    new_socket =
+      socket
+      |> push_event("clear_storage", %{})
+      |> push_navigate(to: ~p"/")
+
+    {:noreply, new_socket}
+  end
+
+  @impl true
   def handle_info(
         {Bus, {:message, id, encrypted_message}},
         %{assigns: %{chat_history: history, id: my_id, participants: participants}} =
@@ -658,7 +758,7 @@ defmodule RoomyWeb.RoomLive do
         end
       end)
 
-    {:noreply, new_socket}
+    {:noreply, to_storage(new_socket)}
   end
 
   @impl true
@@ -667,7 +767,7 @@ defmodule RoomyWeb.RoomLive do
         %{
           assigns: %{
             id: my_id,
-            name: my_name,
+            name: %AsyncResult{result: my_name},
             room_id: room_id,
             public_key: my_public_key,
             participants: participants,
@@ -689,7 +789,12 @@ defmodule RoomyWeb.RoomLive do
       |> Bus.publish({:handshake, my_id, my_name, my_public_key})
     end
 
-    {:noreply, assign(socket, participants: updated_participants)}
+    new_socket =
+      socket
+      |> assign(participants: updated_participants)
+      |> to_storage()
+
+    {:noreply, new_socket}
   end
 
   @impl true
@@ -718,18 +823,27 @@ defmodule RoomyWeb.RoomLive do
       room_id
     )
 
-    {:noreply, assign(socket, participants: updated_participants)}
+    new_socket =
+      socket
+      |> assign(participants: updated_participants)
+      |> to_storage()
+
+    {:noreply, new_socket}
   end
 
   @impl true
   def handle_info({Bus, {:leave, id}}, %{assigns: %{participants: participants}} = socket) do
-    {:noreply,
-     assign(socket,
-       participants:
-         Map.update!(participants, id, fn %Participant{} = participant ->
-           %Participant{participant | active: false}
-         end)
-     )}
+    new_socket =
+      socket
+      |> assign(
+        participants:
+          Map.update!(participants, id, fn %Participant{} = participant ->
+            %Participant{participant | active: false}
+          end)
+      )
+      |> to_storage
+
+    {:noreply, new_socket}
   end
 
   @impl true
@@ -758,13 +872,23 @@ defmodule RoomyWeb.RoomLive do
         %{assigns: %{id: id, room_id: room_id, participants: participants}}
       ) do
     if id do
-      room_id |> room_topic() |> Bus.publish({:leave, id})
+      room_topic = room_topic(room_id)
+      participant_topic = participant_topic(room_id, id)
+      Bus.unsubscribe(room_topic)
+      Bus.unsubscribe(participant_topic)
 
-      publish_message_to_all(
-        %Message{type: :system, kind: :leave, sender_id: id},
-        room_id,
-        participants
-      )
+      participant_topic
+      |> Bus.get_subscribers()
+      |> Kernel.==([])
+      |> if do
+        Bus.publish(room_topic, {:leave, id})
+
+        publish_message_to_all(
+          %Message{type: :system, kind: :leave, sender_id: id},
+          room_id,
+          participants
+        )
+      end
     end
   end
 
@@ -832,6 +956,36 @@ defmodule RoomyWeb.RoomLive do
 
   defp get_random_emoji_unicode(%{0 => face_emojis}) do
     Enum.random(face_emojis).unicode
+  end
+
+  defp to_storage(
+         %{
+           assigns: %{
+             id: id,
+             name: %AsyncResult{result: name},
+             message_input: message_input,
+             chat_history: chat_history,
+             participants: participants,
+             public_key: public_key,
+             private_key: private_key,
+             room_id: room_id
+           }
+         } = socket
+       ) do
+    storage =
+      :erlang.term_to_binary(%LocalStorage{
+        id: id,
+        name: name,
+        message_input: message_input,
+        chat_history: chat_history,
+        participants: participants,
+        public_key: public_key,
+        private_key: private_key,
+        room_id: room_id
+      })
+      |> Base.encode64()
+
+    push_event(socket, "save_to_local_storage", %{value: storage})
   end
 
   defp room_topic(room_id) do

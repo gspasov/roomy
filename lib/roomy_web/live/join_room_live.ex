@@ -50,7 +50,7 @@ defmodule RoomyWeb.JoinRoomLive do
           push_navigate(socket, to: ~p"/room/#{room_id}")
 
         {:error, %Ecto.Changeset{valid?: false} = changeset} ->
-          assign(socket, form: to_form(changeset, as: "room") |> IO.inspect())
+          assign(socket, form: to_form(changeset, as: "room"))
       end
 
     {:noreply, new_socket}

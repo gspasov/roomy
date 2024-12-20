@@ -59,29 +59,27 @@ defmodule RoomyWeb.CoreComponents do
         tabindex="0"
       >
         <div class="flex min-h-full items-center justify-center">
-          <div class="w-full max-w-3xl p-4 sm:p-6 lg:py-8">
-            <.focus_wrap
-              id={"#{@id}-container"}
-              phx-window-keydown={JS.exec("data-cancel", to: "##{@id}")}
-              phx-key="escape"
-              phx-click-away={JS.exec("data-cancel", to: "##{@id}")}
-              class="shadow-zinc-700/10 ring-zinc-700/10 relative hidden rounded-2xl bg-white p-14 shadow-lg ring-1 transition"
-            >
-              <div class="absolute top-6 right-5">
-                <button
-                  phx-click={JS.exec("data-cancel", to: "##{@id}")}
-                  type="button"
-                  class="-m-3 flex-none p-3 opacity-20 hover:opacity-40"
-                  aria-label={gettext("close")}
-                >
-                  <Icon.x_mark />
-                </button>
-              </div>
-              <div id={"#{@id}-content"}>
-                <%= render_slot(@inner_block) %>
-              </div>
-            </.focus_wrap>
-          </div>
+          <.focus_wrap
+            id={"#{@id}-container"}
+            phx-window-keydown={JS.exec("data-cancel", to: "##{@id}")}
+            phx-key="escape"
+            phx-click-away={JS.exec("data-cancel", to: "##{@id}")}
+            class="shadow-zinc-700/10 ring-zinc-700/10 relative hidden rounded-2xl bg-white p-8 shadow-lg ring-1 transition"
+          >
+            <div class="absolute top-3 right-3">
+              <button
+                phx-click={JS.exec("data-cancel", to: "##{@id}")}
+                type="button"
+                class="flex-none opacity-20 hover:opacity-40"
+                aria-label={gettext("close")}
+              >
+                <Icon.x_mark class="h-8 w-8" />
+              </button>
+            </div>
+            <div id={"#{@id}-content"}>
+              {render_slot(@inner_block)}
+            </div>
+          </.focus_wrap>
         </div>
       </div>
     </div>
@@ -123,9 +121,9 @@ defmodule RoomyWeb.CoreComponents do
       <p :if={@title} class="flex items-center gap-1.5 text-sm font-semibold leading-6">
         <Icon.info_circle_fill :if={@kind == :info} />
         <Icon.exclamation_circle_fill :if={@kind == :error} />
-        <%= @title %>
+        {@title}
       </p>
-      <p class="mt-2 text-sm leading-5"><%= msg %></p>
+      <p class="mt-2 text-sm leading-5">{msg}</p>
       <button type="button" class="group absolute top-1 right-1 p-2" aria-label={gettext("close")}>
         <Icon.x_mark class="h-5 w-5 opacity-40 group-hover:opacity-70" />
       </button>
@@ -156,7 +154,7 @@ defmodule RoomyWeb.CoreComponents do
         phx-connected={hide("#client-error")}
         hidden
       >
-        <%= gettext("Attempting to reconnect") %>
+        {gettext("Attempting to reconnect")}
         <Icon.arrow_repeat class="ml-1 h-3 w-3 animate-spin" />
       </.flash>
 
@@ -168,7 +166,7 @@ defmodule RoomyWeb.CoreComponents do
         phx-connected={hide("#server-error")}
         hidden
       >
-        <%= gettext("Hang in there while we get back on track") %>
+        {gettext("Hang in there while we get back on track")}
         <Icon.arrow_repeat class="ml-1 h-3 w-3 animate-spin" />
       </.flash>
     </div>
@@ -202,9 +200,9 @@ defmodule RoomyWeb.CoreComponents do
     ~H"""
     <.form :let={f} for={@for} as={@as} {@rest}>
       <div class="mt-10 space-y-8 bg-white">
-        <%= render_slot(@inner_block, f) %>
+        {render_slot(@inner_block, f)}
         <div :for={action <- @actions} class="mt-2 flex items-center justify-between gap-6">
-          <%= render_slot(action, f) %>
+          {render_slot(action, f)}
         </div>
       </div>
     </.form>
@@ -236,7 +234,7 @@ defmodule RoomyWeb.CoreComponents do
       ]}
       {@rest}
     >
-      <%= render_slot(@inner_block) %>
+      {render_slot(@inner_block)}
     </button>
     """
   end
@@ -320,9 +318,9 @@ defmodule RoomyWeb.CoreComponents do
           class="rounded border-zinc-300 text-zinc-900 focus:ring-0"
           {@rest}
         />
-        <%= @label %>
+        {@label}
       </label>
-      <.error :for={msg <- @errors}><%= msg %></.error>
+      <.error :for={msg <- @errors}>{msg}</.error>
     </div>
     """
   end
@@ -330,7 +328,7 @@ defmodule RoomyWeb.CoreComponents do
   def input(%{type: "select"} = assigns) do
     ~H"""
     <div>
-      <.label for={@id}><%= @label %></.label>
+      <.label for={@id}>{@label}</.label>
       <select
         id={@id}
         name={@name}
@@ -338,10 +336,10 @@ defmodule RoomyWeb.CoreComponents do
         multiple={@multiple}
         {@rest}
       >
-        <option :if={@prompt} value=""><%= @prompt %></option>
-        <%= Phoenix.HTML.Form.options_for_select(@options, @value) %>
+        <option :if={@prompt} value="">{@prompt}</option>
+        {Phoenix.HTML.Form.options_for_select(@options, @value)}
       </select>
-      <.error :for={msg <- @errors}><%= msg %></.error>
+      <.error :for={msg <- @errors}>{msg}</.error>
     </div>
     """
   end
@@ -349,7 +347,7 @@ defmodule RoomyWeb.CoreComponents do
   def input(%{type: "textarea"} = assigns) do
     ~H"""
     <div>
-      <.label for={@id}><%= @label %></.label>
+      <.label for={@id}>{@label}</.label>
       <textarea
         id={@id}
         name={@name}
@@ -360,7 +358,7 @@ defmodule RoomyWeb.CoreComponents do
         ]}
         {@rest}
       ><%= Phoenix.HTML.Form.normalize_value("textarea", @value) %></textarea>
-      <.error :for={msg <- @errors}><%= msg %></.error>
+      <.error :for={msg <- @errors}>{msg}</.error>
     </div>
     """
   end
@@ -369,7 +367,7 @@ defmodule RoomyWeb.CoreComponents do
   def input(assigns) do
     ~H"""
     <div>
-      <.label for={@id}><%= @label %></.label>
+      <.label for={@id}>{@label}</.label>
       <input
         type={@type}
         name={@name}
@@ -382,7 +380,7 @@ defmodule RoomyWeb.CoreComponents do
         ]}
         {@rest}
       />
-      <.error :for={msg <- @errors}><%= msg %></.error>
+      <.error :for={msg <- @errors}>{msg}</.error>
     </div>
     """
   end
@@ -396,7 +394,7 @@ defmodule RoomyWeb.CoreComponents do
   def label(assigns) do
     ~H"""
     <label for={@for} class="block text-sm font-semibold leading-6 text-zinc-800">
-      <%= render_slot(@inner_block) %>
+      {render_slot(@inner_block)}
     </label>
     """
   end
@@ -410,7 +408,7 @@ defmodule RoomyWeb.CoreComponents do
     ~H"""
     <p class="mt-1 flex gap-2 text-sm items-center leading-6 text-rose-600">
       <Icon.exclamation_circle_fill class="mt-0.5 h-4 w-4" />
-      <%= render_slot(@inner_block) %>
+      {render_slot(@inner_block)}
     </p>
     """
   end
@@ -429,13 +427,13 @@ defmodule RoomyWeb.CoreComponents do
     <header class={[@actions != [] && "flex items-center justify-between gap-6", @class]}>
       <div>
         <h1 class="text-lg font-semibold leading-8 text-zinc-800">
-          <%= render_slot(@inner_block) %>
+          {render_slot(@inner_block)}
         </h1>
         <p :if={@subtitle != []} class="mt-2 text-sm leading-6 text-zinc-600">
-          <%= render_slot(@subtitle) %>
+          {render_slot(@subtitle)}
         </p>
       </div>
-      <div class="flex-none"><%= render_slot(@actions) %></div>
+      <div class="flex-none">{render_slot(@actions)}</div>
     </header>
     """
   end
@@ -476,9 +474,9 @@ defmodule RoomyWeb.CoreComponents do
       <table class="w-[40rem] mt-11 sm:w-full">
         <thead class="text-sm text-left leading-6 text-zinc-500">
           <tr>
-            <th :for={col <- @col} class="p-0 pb-4 pr-6 font-normal"><%= col[:label] %></th>
+            <th :for={col <- @col} class="p-0 pb-4 pr-6 font-normal">{col[:label]}</th>
             <th :if={@action != []} class="relative p-0 pb-4">
-              <span class="sr-only"><%= gettext("Actions") %></span>
+              <span class="sr-only">{gettext("Actions")}</span>
             </th>
           </tr>
         </thead>
@@ -496,7 +494,7 @@ defmodule RoomyWeb.CoreComponents do
               <div class="block py-4 pr-6">
                 <span class="absolute -inset-y-px right-0 -left-4 group-hover:bg-zinc-50 sm:rounded-l-xl" />
                 <span class={["relative", i == 0 && "font-semibold text-zinc-900"]}>
-                  <%= render_slot(col, @row_item.(row)) %>
+                  {render_slot(col, @row_item.(row))}
                 </span>
               </div>
             </td>
@@ -507,7 +505,7 @@ defmodule RoomyWeb.CoreComponents do
                   :for={action <- @action}
                   class="relative ml-4 font-semibold leading-6 text-zinc-900 hover:text-zinc-700"
                 >
-                  <%= render_slot(action, @row_item.(row)) %>
+                  {render_slot(action, @row_item.(row))}
                 </span>
               </div>
             </td>
@@ -537,8 +535,8 @@ defmodule RoomyWeb.CoreComponents do
     <div class="mt-14">
       <dl class="-my-4 divide-y divide-zinc-100">
         <div :for={item <- @item} class="flex gap-4 py-4 text-sm leading-6 sm:gap-8">
-          <dt class="w-1/4 flex-none text-zinc-500"><%= item.title %></dt>
-          <dd class="text-zinc-700"><%= render_slot(item) %></dd>
+          <dt class="w-1/4 flex-none text-zinc-500">{item.title}</dt>
+          <dd class="text-zinc-700">{render_slot(item)}</dd>
         </div>
       </dl>
     </div>

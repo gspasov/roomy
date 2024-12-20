@@ -88,6 +88,24 @@ Hooks.MouseEnter = {
   },
 };
 
+Hooks.LocalStorage = {
+  mounted() {
+    this.pushEvent("restore_from_local_storage", {
+      value: localStorage.getItem("roomy:history"),
+    });
+
+    this.handleEvent("save_to_local_storage", ({ value }) => {
+      console.log("Save storage");
+      localStorage.setItem("roomy:history", value);
+    });
+
+    this.handleEvent("clear_storage", (_) => {
+      console.log("Clear storage");
+      localStorage.removeItem("roomy:history");
+    });
+  },
+};
+
 Hooks.BrowserNotification = {
   mounted() {
     this.handleEvent("trigger_notification", ({ title, body }) => {
