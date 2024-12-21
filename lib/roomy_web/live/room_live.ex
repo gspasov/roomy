@@ -239,35 +239,39 @@ defmodule RoomyWeb.RoomLive do
                   <div
                     id="gif_dialog"
                     class={[
-                      "absolute min-w-96 min-h-96 m-2 columns-2 gap-2 rounded bottom-full right-0 bg-slate-500 overflow-y-auto hidden",
+                      "absolute m-2 w-96 min-h-96 max-h-[500px] overflow-y-auto rounded bottom-full right-0 bg-slate-500",
                       if(not Enum.empty?(@gifs), do: "p-2")
                     ]}
                     phx-click-away={hide("#gif_dialog") |> JS.push("gif_dialog:toggle")}
                   >
-                    <span
-                      :if={Enum.empty?(@gifs)}
-                      class="absolute w-full h-full flex items-center justify-center"
-                    >
-                      <Icon.loading class="h-10 w-10 animate-spin bg-slate-500 text-slate-200" />
-                    </span>
-                    <img
-                      :for={
-                        %Giphy{
-                          preview_url: preview_url,
-                          preview_width: preview_width,
-                          preview_height: preview_height,
-                          medium_url: medium_url,
-                          medium_width: medium_width,
-                          medium_height: medium_height
-                        } <- @gifs
-                      }
-                      class="rounded mb-2 box-border cursor-pointer hover:border-2 hover:border-indigo-500"
-                      src={preview_url}
-                      height={to_string(preview_height)}
-                      width={to_string(preview_width)}
-                      phx-click="send_gif"
-                      phx-value-gif={render_gif(medium_url, medium_width, medium_height)}
-                    />
+                    <div class="columns-2 gap-2">
+                      <span
+                        :if={Enum.empty?(@gifs)}
+                        class="absolute w-full h-full flex items-center justify-center"
+                      >
+                        <Icon.loading class="h-10 w-10 animate-spin bg-slate-500 text-slate-200" />
+                      </span>
+                      <img
+                        :for={
+                          %Giphy{
+                            title: title,
+                            preview_url: preview_url,
+                            preview_width: preview_width,
+                            preview_height: preview_height,
+                            medium_url: medium_url,
+                            medium_width: medium_width,
+                            medium_height: medium_height
+                          } <- @gifs
+                        }
+                        class="rounded mb-2 box-border cursor-pointer hover:border-2 hover:border-indigo-500"
+                        src={preview_url}
+                        alt={title}
+                        height={to_string(preview_height)}
+                        width={to_string(preview_width)}
+                        phx-click="send_gif"
+                        phx-value-gif={render_gif(medium_url, medium_width, medium_height)}
+                      />
+                    </div>
                   </div>
 
                   <%!-- Emojis Dialog --%>
@@ -279,7 +283,7 @@ defmodule RoomyWeb.RoomLive do
                     phx-click-away={hide("#emoji_dialog")}
                   >
                     <h2 class="font-semibold text-3xl text-white px-4 pt-2">Emojis</h2>
-                    <div class="max-w-96 max-h-96 m-2 mb-0 flex flex-col gap-10 overflow-y-auto">
+                    <div class="w-96 h-96 m-2 mb-0 flex flex-col gap-10 overflow-y-auto">
                       <div :for={{_group, emojis} <- @emoji_groups} class="p-2 grid grid-cols-7 gap-4">
                         <span
                           :for={%Emoji{unicode: unicode} <- emojis}
@@ -423,6 +427,7 @@ defmodule RoomyWeb.RoomLive do
   @impl true
   def mount(%{"room_id" => room_id} = _params, _session, socket) do
     emoji_groups = Emoji.get_groups()
+    gifs = Roomy.GiphyScrapper.get_gifs() |> Enum.take(100)
 
     new_socket =
       assign(socket,
@@ -438,7 +443,7 @@ defmodule RoomyWeb.RoomLive do
         message_type: :text,
         message_variant: nil,
         message_timer: nil,
-        gifs: [],
+        gifs: gifs,
         giphy_client: Giphy.client(),
         emoji_groups: emoji_groups,
         emoji_button_unicode: get_random_emoji_unicode(emoji_groups),
@@ -581,17 +586,19 @@ defmodule RoomyWeb.RoomLive do
   def handle_event(
         "gif_dialog:toggle",
         _,
-        %{assigns: %{gifs: gifs, giphy_client: client, gif_dialog_open: opened?}} = socket
+        %{assigns: %{gifs: _gifs, giphy_client: _client, gif_dialog_open: opened?}} = socket
       ) do
-    new_socket =
-      with false <- opened?,
-           a when a == [] <- gifs,
-           {:ok, gifs} <- Giphy.trending_gifs(client, %{limit: 5}) do
-        assign(socket, gifs: gifs)
-      else
-        _ -> socket
-      end
-      |> assign(gif_dialog_open: not opened?)
+    # new_socket =
+    #   with false <- opened?,
+    #        a when a == [] <- gifs,
+    #        {:ok, gifs} <- Giphy.trending_gifs(client, %{limit: 5}) do
+    #     assign(socket, gifs: gifs)
+    #   else
+    #     _ -> socket
+    #   end
+    #   |> assign(gif_dialog_open: not opened?)
+
+    new_socket = assign(socket, gif_dialog_open: not opened?)
 
     {:noreply, new_socket}
   end

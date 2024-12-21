@@ -8,6 +8,7 @@ defmodule Roomy.Giphy do
   @default_params %{limit: 2}
 
   typedstruct required: true do
+    field(:id, String.t())
     field(:title, String.t())
     field(:medium_url, String.t())
     field(:medium_height, pos_integer())
@@ -33,6 +34,7 @@ defmodule Roomy.Giphy do
       {:ok, %Tesla.Env{status: 200, body: %{"data" => data}}} ->
         {:ok,
          Enum.map(data, fn %{
+                             "id" => id,
                              "title" => title,
                              "images" => %{
                                "fixed_width" => %{
@@ -48,6 +50,47 @@ defmodule Roomy.Giphy do
                              }
                            } ->
            %__MODULE__{
+             id: id,
+             title: title,
+             medium_height: medium_height,
+             medium_width: medium_width,
+             medium_url: medium_url,
+             preview_height: preview_height,
+             preview_width: preview_width,
+             preview_url: preview_url
+           }
+         end)}
+
+      error ->
+        Logger.error("[#{__MODULE__}] #{inspect(error)}")
+        :error
+    end
+  end
+
+  def search(client, params) do
+    query_params = params |> Map.merge(@required_params) |> URI.encode_query()
+
+    case Tesla.get(client, "/search?#{query_params}") do
+      {:ok, %Tesla.Env{status: 200, body: %{"data" => data}}} ->
+        {:ok,
+         Enum.map(data, fn %{
+                             "id" => id,
+                             "title" => title,
+                             "images" => %{
+                               "fixed_width" => %{
+                                 "height" => medium_height,
+                                 "width" => medium_width,
+                                 "url" => medium_url
+                               },
+                               "fixed_width_downsampled" => %{
+                                 "height" => preview_height,
+                                 "width" => preview_width,
+                                 "url" => preview_url
+                               }
+                             }
+                           } ->
+           %__MODULE__{
+             id: id,
              title: title,
              medium_height: medium_height,
              medium_width: medium_width,
