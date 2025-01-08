@@ -15,6 +15,8 @@ defmodule RoomyWeb.RoomLive do
       field(:id, String.t())
       field(:name, String.t())
       field(:aes_key, binary())
+      field(:typing, boolean(), default: false)
+      field(:avatar, String.t(), required: false)
       field(:active, boolean(), default: true)
     end
   end
@@ -66,7 +68,6 @@ defmodule RoomyWeb.RoomLive do
   # @TODO: Pasting image url should display the image in the chat instead
   # @TODO: Ability to react to messages
   # @TODO: Ability to reply to a message
-  # @TODO: Show when a person is writing a message (while typing)
   # @TODO: Show if person is online
   # @TODO: Add 'seen' message functionality
   # @TODO: Make the UI prettier
@@ -74,7 +75,7 @@ defmodule RoomyWeb.RoomLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <div class="h-full" id="local_storage" phx-hook="LocalStorage">
+    <div class="h-full" id="local_storage" phx-hook="Parent">
       <.modal id="confirm_modal">
         <h2 class="text-xl font-semibold text-gray-800">Leave Room</h2>
         <p class="text-gray-600 mt-2">
@@ -128,7 +129,7 @@ defmodule RoomyWeb.RoomLive do
           </div>
         <% else %>
           <div id="notify" class="flex flex-col h-full" phx-hook="BrowserNotification">
-            <header class="flex items-center justify-between px-4 h-12 flex-shrink-0 shadow">
+            <%!-- <header class="flex items-center justify-between px-4 h-12 flex-shrink-0 shadow">
               <h1 class="text-xl">Roomy</h1>
               <button
                 id="copy_room_invite_button"
@@ -138,13 +139,13 @@ defmodule RoomyWeb.RoomLive do
               >
                 Copy invite
               </button>
-            </header>
+            </header> --%>
             <div class="flex grow overflow-y-auto">
               <%!-- Participants area --%>
-              <div class="flex flex-col items-center justify-between bg-slate-300">
-                <div class="grow">
-                  <h2 class="px-8 bg-slate-400">Participants</h2>
-                  <div class="divide-y divide-slate-400">
+              <div class="flex flex-col items-center justify-between px-4 text-white bg-purple">
+                <div>
+                  <h2 class="text-3xl py-4 font-bold">Roomy</h2>
+                  <div class="columns-2 gap-4">
                     <div
                       :for={
                         %Participant{id: id, name: name, active: active} <-
@@ -155,14 +156,14 @@ defmodule RoomyWeb.RoomLive do
                           end)
                       }
                       class={[
-                        "px-4 py-2 cursor-default",
-                        if(active,
-                          do: "hover:bg-gray-400",
-                          else: "text-gray-400"
-                        )
+                        "flex flex-col items-center gap-1 rounded-xl bg-slate-700 p-2 cursor-default",
+                        if(active, do: "hover:bg-slate-600", else: "opacity-50")
                       ]}
                     >
-                      {name <> if(id == @id, do: " (You)", else: "")}
+                      <div class="w-14 h-14 overflow-hidden rounded-2xl">
+                        {raw(fetch_sender(@participants, id).avatar)}
+                      </div>
+                      <div class="text-center">{if(id == @id, do: "You", else: name)}</div>
                     </div>
                   </div>
                 </div>
@@ -175,10 +176,16 @@ defmodule RoomyWeb.RoomLive do
               </div>
 
               <%!-- Chat area --%>
-              <div class="flex flex-col grow">
+              <div class="flex flex-col relative grow bg-my_gray text-purple">
+                <%!-- Chat header --%>
+                <div class="absolute w-full h-24 px-8 py-4 bg-opacity-50 backdrop-blur">
+                  <div class="text-2xl text-dark font-semibold">Office chat</div>
+                  <div class="text-xs font-semibold">{map_size(@participants)} members</div>
+                </div>
+                <%!-- Chat body --%>
                 <div
                   id="chat_history"
-                  class="flex flex-col gap-2 grow overflow-y-auto"
+                  class="flex flex-col gap-2 pt-24 pb-2 grow overflow-y-auto"
                   phx-hook="ScrollToBottom"
                 >
                   <%!-- Messages --%>
@@ -193,45 +200,89 @@ defmodule RoomyWeb.RoomLive do
                        } = message, index} <- Enum.with_index(@chat_history)
                     }
                     key={"message-#{index}"}
-                    class="flex flex-col gap-1"
                   >
                     <%= if type == :system do %>
-                      <div class="flex gap-2 items-center py-2 px-4 text-xs font-medium">
-                        <span class="border-t grow"></span>
-                        <div :if={kind == :join} class="text-green-600">
-                          {format_message(message, fetch_sender_name(@participants, sender_id))}
+                      <div class="flex justify-center">
+                        <div class="flex items-center gap-2 py-2 px-4 text-xs text-white font-medium rounded-full bg-purple opacity-75">
+                          <div class="w-6 h-6 overflow-hidden rounded-2xl">
+                            {raw(fetch_sender(@participants, sender_id).avatar)}
+                          </div>
+                          <span :if={kind == :join}>
+                            {format_message(message, fetch_sender(@participants, sender_id).name)}
+                          </span>
+                          <span :if={kind == :leave}>
+                            {format_message(message, fetch_sender(@participants, sender_id).name)}
+                          </span>
                         </div>
-                        <div :if={kind == :leave} class="text-red-600">
-                          {format_message(message, fetch_sender_name(@participants, sender_id))}
-                        </div>
-                        <span class="border-t grow"></span>
                       </div>
                     <% else %>
-                      <div class="flex flex-col gap-1 px-4 py-2 hover:bg-slate-200">
-                        <div class="text-xs">
-                          <span class="font-semibold">
-                            {fetch_sender_name(@participants, sender_id)}
-                          </span>
-                          {sent_at
-                          |> DateTime.shift_zone!(@timezone)
-                          |> Calendar.strftime("%Y-%m-%d %H:%M")}
-                          <span
-                            :if={kind == :destroy_after}
-                            class="text-xs font-semibold text-indigo-500"
-                          >
-                            Self destroy in {DateTime.diff(execute_at, DateTime.utc_now())} seconds
-                          </span>
-                        </div>
+                      <div class="px-4 py-2 hover:bg-slate-300">
+                        <div class={["flex gap-2", if(sender_id == @id, do: "justify-end")]}>
+                          <div :if={sender_id != @id} class="w-14 h-14 overflow-hidden rounded-2xl">
+                            {raw(fetch_sender(@participants, sender_id).avatar)}
+                          </div>
+                          <div>
+                            <div class={[
+                              "font-semibold text-dark",
+                              if(sender_id == @id, do: "text-right")
+                            ]}>
+                              {fetch_sender(@participants, sender_id).name}
+                              <span :if={kind == :destroy_after}>
+                                Self destroy in {DateTime.diff(execute_at, DateTime.utc_now())} seconds
+                              </span>
+                            </div>
 
-                        <p class="max-w-prose break-words">{render_message(message)}</p>
+                            <div class={[
+                              "max-w-prose break-words p-4 mt-1 rounded-3xl",
+                              if(sender_id == @id,
+                                do: "rounded-tr-sm bg-bubble_2",
+                                else: "rounded-tl-sm bg-bubble_1"
+                              )
+                            ]}>
+                              <p>{render_message(message)}</p>
+                              <div class="text-xs text-slate-600 text-right">
+                                {sent_at
+                                |> DateTime.shift_zone!(@timezone)
+                                |> Calendar.strftime("%H:%M")}
+                              </div>
+                            </div>
+                          </div>
+                          <div :if={sender_id == @id} class="w-14 h-14 overflow-hidden rounded-2xl">
+                            {raw(fetch_sender(@participants, sender_id).avatar)}
+                          </div>
+                        </div>
                       </div>
                     <% end %>
                   </div>
                 </div>
 
+                <%!-- Participant typing visualization section --%>
+                <div class="absolute w-full bottom-16 flex gap-2 px-6 bg-opacity-50 backdrop-blur">
+                  <div
+                    :for={
+                      {_, %Participant{avatar: avatar}} <-
+                        Enum.filter(@participants, fn {_, %Participant{typing: typing}} ->
+                          typing
+                        end)
+                    }
+                    class="flex items-center gap-2 text-xs font-medium py-1"
+                  >
+                    <div class="w-6 h-6 overflow-hidden rounded-2xl">
+                      {raw(avatar)}
+                    </div>
+                    <div class="flex gap-1 justify-center items-center">
+                      <span>is typing</span>
+                      <div class="h-1.5 w-1.5 bg-black rounded-full animate-bounce [animation-delay:-0.25s]">
+                      </div>
+                      <div class="h-1.5 w-1.5 bg-black rounded-full animate-bounce [animation-delay:-0.10s]">
+                      </div>
+                      <div class="h-1.5 w-1.5 bg-black rounded-full animate-bounce"></div>
+                    </div>
+                  </div>
+                </div>
                 <%!-- Message Input --%>
                 <form
-                  class="relative pb-4 px-4 gap-4 mt-2"
+                  class="relative pb-4 px-4 gap-4"
                   phx-submit="message_box:submit"
                   phx-change="message_box:change"
                 >
@@ -239,7 +290,7 @@ defmodule RoomyWeb.RoomLive do
                   <div
                     id="gif_dialog"
                     class={[
-                      "absolute m-2 w-96 min-h-96 max-h-[500px] overflow-y-auto rounded bottom-full right-0 bg-slate-500",
+                      "absolute m-2 w-96 min-h-96 max-h-[500px] overflow-y-auto rounded bottom-full right-0 bg-slate-500 hidden",
                       if(not Enum.empty?(@gifs), do: "p-2")
                     ]}
                     phx-click-away={hide("#gif_dialog") |> JS.push("gif_dialog:toggle")}
@@ -447,7 +498,8 @@ defmodule RoomyWeb.RoomLive do
         giphy_client: Giphy.client(),
         emoji_groups: emoji_groups,
         emoji_button_unicode: get_random_emoji_unicode(emoji_groups),
-        timezone: socket.private[:connect_params]["timezone"]
+        timezone: socket.private[:connect_params]["timezone"],
+        typing_refs: %{}
       )
 
     {:ok, new_socket}
@@ -460,8 +512,6 @@ defmodule RoomyWeb.RoomLive do
 
   @impl true
   def handle_event("restore_from_local_storage", %{"value" => value}, socket) do
-    IO.inspect(value, label: "here")
-
     new_socket =
       if value do
         %LocalStorage{
@@ -530,7 +580,12 @@ defmodule RoomyWeb.RoomLive do
   end
 
   @impl true
-  def handle_event("message_box:change", %{"message" => message}, socket) do
+  def handle_event(
+        "message_box:change",
+        %{"message" => message},
+        %{assigns: %{room_id: room_id, participants: participants, id: id}} = socket
+      ) do
+    room_id |> room_topic() |> Bus.publish({:typing, Map.fetch!(participants, id)})
     {:noreply, assign(socket, message_input: message)}
   end
 
@@ -701,6 +756,23 @@ defmodule RoomyWeb.RoomLive do
   end
 
   @impl true
+  def handle_event(
+        "generated_avatar",
+        %{"id" => id, "svg" => svg},
+        %{assigns: %{participants: participants}} = socket
+      ) do
+    updated_participants =
+      Map.update!(participants, id, fn %Participant{} = p -> %Participant{p | avatar: svg} end)
+
+    new_socket =
+      socket
+      |> assign(participants: updated_participants)
+      |> to_storage()
+
+    {:noreply, new_socket}
+  end
+
+  @impl true
   def handle_info(
         {Bus, {:message, id, encrypted_message}},
         %{assigns: %{chat_history: history, id: my_id, participants: participants}} =
@@ -739,7 +811,7 @@ defmodule RoomyWeb.RoomLive do
       |> push_event("message:new", %{is_sender: true})
       |> then(fn new_socket ->
         if sender_id != my_id do
-          sender_name = fetch_sender_name(participants, sender_id)
+          %Participant{name: sender_name} = fetch_sender(participants, sender_id)
 
           {title, body} =
             case {type, kind} do
@@ -799,6 +871,7 @@ defmodule RoomyWeb.RoomLive do
     new_socket =
       socket
       |> assign(participants: updated_participants)
+      |> push_event("generate_avatar", %{name: name, id: id})
       |> to_storage()
 
     {:noreply, new_socket}
@@ -833,6 +906,7 @@ defmodule RoomyWeb.RoomLive do
     new_socket =
       socket
       |> assign(participants: updated_participants)
+      |> push_event("generate_avatar", %{name: name, id: id})
       |> to_storage()
 
     {:noreply, new_socket}
@@ -849,6 +923,58 @@ defmodule RoomyWeb.RoomLive do
           end)
       )
       |> to_storage
+
+    {:noreply, new_socket}
+  end
+
+  @impl true
+  def handle_info(
+        {Bus, {:typing, %Participant{id: id} = participant}},
+        %{assigns: %{id: my_id, participants: participants, typing_refs: typing_refs}} = socket
+      ) do
+    new_socket =
+      if id == my_id do
+        socket
+      else
+        updated_participants =
+          Map.update!(participants, id, fn %Participant{} = p ->
+            %Participant{p | typing: true}
+          end)
+
+        current_participant_typing_ref = Map.get(typing_refs, id)
+
+        if current_participant_typing_ref do
+          Process.cancel_timer(current_participant_typing_ref)
+        end
+
+        new_typing_ref =
+          Process.send_after(self(), {:stop_typing, participant}, :timer.seconds(1))
+
+        assign(socket,
+          participants: updated_participants,
+          typing_refs: Map.put(typing_refs, id, new_typing_ref)
+        )
+      end
+
+    {:noreply, new_socket}
+  end
+
+  @impl true
+  def handle_info(
+        {:stop_typing, %Participant{id: id}},
+        %{assigns: %{id: my_id, participants: participants}} = socket
+      ) do
+    new_socket =
+      if id != my_id do
+        updated_participants =
+          Map.update!(participants, id, fn %Participant{} = p ->
+            %Participant{p | typing: false}
+          end)
+
+        assign(socket, participants: updated_participants)
+      else
+        socket
+      end
 
     {:noreply, new_socket}
   end
@@ -938,27 +1064,17 @@ defmodule RoomyWeb.RoomLive do
     |> raw()
   end
 
-  defp format_message(
-         %Message{
-           type: :system,
-           kind: kind,
-           sent_at: sent_at
-         },
-         sender_name
-       ) do
-    time = Calendar.strftime(sent_at, "%Y-%m-%d %I:%M %p")
-
+  defp format_message(%Message{type: :system, kind: kind}, sender_name) do
     case kind do
-      :join -> "Hooray #{sender_name} joined the chat at #{time}"
-      :leave -> "#{sender_name} left the chat at #{time}"
+      :join -> "#{sender_name} joined the chat 🔥"
+      :leave -> "#{sender_name} left the chat 😔"
     end
   end
 
-  defp fetch_sender_name(participants, sender_id) do
-    {_, %Participant{name: name}} =
-      Enum.find(participants, fn {_, %Participant{id: id}} -> id == sender_id end)
-
-    name
+  defp fetch_sender(participants, sender_id) do
+    participants
+    |> Enum.find(fn {_, %Participant{id: id}} -> id == sender_id end)
+    |> elem(1)
   end
 
   defp get_random_emoji_unicode(%{0 => face_emojis}) do

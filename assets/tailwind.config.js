@@ -9,6 +9,20 @@ module.exports = {
     extend: {
       colors: {
         brand: "#FD4F00",
+        my_gray: "#F1F0F3",
+        bubble_1: "#EDDBDB",
+        bubble_2: "#D7EDC1",
+        purple: "#1B0036",
+        dark: "#250036",
+      },
+      animation: {
+        bounce: "bounce 1.5s infinite",
+      },
+      keyframes: {
+        bounce: {
+          "0%, 80%, 100%": { transform: "scale(0)" },
+          "40%": { transform: "scale(1)" },
+        },
       },
     },
   },

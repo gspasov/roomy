@@ -11,7 +11,7 @@ defmodule RoomyWeb.HomeLive do
     <div
       id="local_storage"
       class="bg-gray-100 h-full flex items-center justify-center"
-      phx-hook="LocalStorage"
+      phx-hook="Parent"
     >
       <.async_result :let={room_id} assign={@room_id}>
         <div class="flex flex-col bg-white p-8 items-center gap-3 rounded-lg shadow-lg w-full max-w-md">
@@ -96,5 +96,15 @@ defmodule RoomyWeb.HomeLive do
   def handle_event("create_room", _, socket) do
     room_id = Utils.generate_code()
     {:noreply, push_navigate(socket, to: ~p"/room/#{room_id}")}
+  end
+
+  @impl true
+  def handle_event("leave_room", _params, socket) do
+    new_socket =
+      socket
+      |> push_event("clear_storage", %{})
+      |> push_navigate(to: ~p"/")
+
+    {:noreply, new_socket}
   end
 end

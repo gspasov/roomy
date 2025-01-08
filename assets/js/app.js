@@ -21,6 +21,7 @@ import "phoenix_html";
 import { Socket } from "phoenix";
 import { LiveSocket } from "phoenix_live_view";
 import topbar from "../vendor/topbar";
+import avatar from "animal-avatar-generator";
 
 let Hooks = {};
 
@@ -88,7 +89,7 @@ Hooks.MouseEnter = {
   },
 };
 
-Hooks.LocalStorage = {
+Hooks.Parent = {
   mounted() {
     this.pushEvent("restore_from_local_storage", {
       value: localStorage.getItem("roomy:history"),
@@ -102,6 +103,11 @@ Hooks.LocalStorage = {
     this.handleEvent("clear_storage", (_) => {
       console.log("Clear storage");
       localStorage.removeItem("roomy:history");
+    });
+
+    this.handleEvent("generate_avatar", ({ name, id }) => {
+      const svg = avatar(name, { size: "100%", round: false });
+      this.pushEvent("generated_avatar", { svg, id });
     });
   },
 };
