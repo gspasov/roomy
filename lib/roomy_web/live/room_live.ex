@@ -19,6 +19,34 @@ defmodule RoomyWeb.RoomLive do
       field(:avatar, String.t(), required: false)
       field(:active, boolean(), default: true)
     end
+
+    def compare(%__MODULE__{name: name_1, active: active_1}, %__MODULE__{
+          name: name_2,
+          active: active_2
+        }) do
+      case {active_1, active_2} do
+        {true, false} ->
+          :lt
+
+        {false, true} ->
+          :gt
+
+        _ ->
+          n1 = String.downcase(name_1) |> String.normalize(:nfkd)
+          n2 = String.downcase(name_2) |> String.normalize(:nfkd)
+
+          cond do
+            n1 > n2 ->
+              :gt
+
+            n1 < n2 ->
+              :lt
+
+            true ->
+              :eq
+          end
+      end
+    end
   end
 
   defmodule Message do
@@ -113,6 +141,7 @@ defmodule RoomyWeb.RoomLive do
                 <.input
                   field={f[:name]}
                   type="text"
+                  maxlength="24"
                   label="Name"
                   placeholder="Your name"
                   autofocus
@@ -145,25 +174,24 @@ defmodule RoomyWeb.RoomLive do
               <div class="flex flex-col items-center justify-between px-4 text-white bg-purple">
                 <div>
                   <h2 class="text-3xl py-4 font-bold">Roomy</h2>
-                  <div class="columns-2 gap-4">
+                  <div class="columns-2 gap-2">
                     <div
                       :for={
                         %Participant{id: id, name: name, active: active} <-
                           @participants
                           |> Map.values()
-                          |> Enum.sort_by(fn %Participant{active: active, name: name} ->
-                            {not active, name}
-                          end)
+                          |> Enum.sort(Participant)
                       }
                       class={[
-                        "flex flex-col items-center gap-1 rounded-xl bg-slate-700 p-2 cursor-default",
-                        if(active, do: "hover:bg-slate-600", else: "opacity-50")
+                        "flex flex-col items-center gap-1 max-w-20 p-2 mb-2 rounded-xl cursor-default break-inside-avoid",
+                        if(active, do: "hover:bg-slate-600", else: "opacity-50"),
+                        if(id == @id, do: "bg-yellow-900", else: "bg-slate-700")
                       ]}
                     >
                       <div class="w-14 h-14 overflow-hidden rounded-2xl">
                         {raw(fetch_sender(@participants, id).avatar)}
                       </div>
-                      <div class="text-center">{if(id == @id, do: "You", else: name)}</div>
+                      <div class="text-center">{name}</div>
                     </div>
                   </div>
                 </div>
