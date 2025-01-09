@@ -56,6 +56,17 @@ defmodule RoomyWeb.RoomLive do
     end
   end
 
+  defmodule GroupedMessage do
+    use TypedStruct
+
+    typedstruct required: true do
+      field(:sender_id, String.t())
+      field(:sender_name, String.t())
+      field(:sender_avatar, String.t())
+      field(:messages, [Message.t()])
+    end
+  end
+
   defmodule LocalStorage do
     use TypedStruct
 
@@ -76,16 +87,21 @@ defmodule RoomyWeb.RoomLive do
   # @TODO: Add scroll for Gifs
   # @TODO: Add search bar for Gifs
   # @TODO: Add GIPHY name in the gifs corner (for brand recognition)
+  # @TODO: Make dynamic loading of GIFs
+  # @TODO: Add ability to mark a GIF as favorite. Add section for favorite GIFs so User can choose from there.
 
   # Emoji related
   # @TODO: User can type/search emojies with `:` prompt
 
   # Overall functionality
+  # @TODO: Ability to create and be part of more than one Room
+  # @TODO: Make it mobile friendly
   # @TODO: Store encrypted messages in DB. Figure out how to encrypt/decrypt them efficiently for a group chat
   # @TODO: Pasting image url should display the image in the chat instead
   # @TODO: Ability to react to messages
   # @TODO: Ability to reply to a message
   # @TODO: Make the UI prettier
+  # @TODO: Fix issue when multiple windows of the same User is open Join message is duplicated
 
   @impl true
   def render(assigns) do
@@ -172,7 +188,9 @@ defmodule RoomyWeb.RoomLive do
                       }
                       class={[
                         "flex flex-col items-center gap-1 max-w-20 p-2 mb-2 rounded-xl cursor-default break-inside-avoid",
-                        if(online?, do: "hover:bg-slate-600", else: "opacity-50"),
+                        if(not online?, do: "opacity-50"),
+                        if(online? and id != @id, do: "hover:bg-slate-600"),
+                        if(online? and id == @id, do: "hover:bg-yellow-800"),
                         if(id == @id, do: "bg-yellow-900", else: "bg-slate-700")
                       ]}
                     >
@@ -194,7 +212,7 @@ defmodule RoomyWeb.RoomLive do
               <%!-- Chat area --%>
               <div class="flex flex-col relative grow bg-my_gray text-purple">
                 <%!-- Chat header --%>
-                <div class="absolute w-full h-24 px-8 py-4 bg-opacity-50 backdrop-blur">
+                <div class="absolute w-full h-20 px-8 py-4 bg-opacity-50 backdrop-blur">
                   <div class="text-2xl text-dark font-semibold">Office chat</div>
                   <div class="text-xs font-semibold">{map_size(@participants)} members</div>
                 </div>
@@ -205,29 +223,25 @@ defmodule RoomyWeb.RoomLive do
                   phx-hook="ScrollToBottom"
                 >
                   <%!-- Messages --%>
-                  <div
-                    :for={
-                      {%Message{
-                         type: type,
-                         kind: kind,
-                         sender_id: sender_id,
-                         sent_at: sent_at,
-                         execute_at: execute_at
-                       } = message, index} <- Enum.with_index(@chat_history)
-                    }
-                    key={"message-#{index}"}
-                  >
-                    <%= if type == :system do %>
+                  <div :for={
+                    %GroupedMessage{
+                      sender_id: sender_id,
+                      sender_name: sender_name,
+                      sender_avatar: sender_avatar,
+                      messages: messages
+                    } <- group_messages(@chat_history, @participants)
+                  }>
+                    <%= if length(messages) == 1 and hd(messages).type == :system do %>
                       <div class="flex justify-center">
                         <div class="flex items-center gap-2 py-2 px-4 text-xs text-white font-medium rounded-full bg-purple opacity-75">
                           <div class="w-6 h-6 overflow-hidden rounded-2xl">
-                            {raw(fetch_sender(@participants, sender_id).avatar)}
+                            {raw(sender_avatar)}
                           </div>
-                          <span :if={kind == :join}>
-                            {format_message(message, fetch_sender(@participants, sender_id).name)}
+                          <span :if={hd(messages).kind == :join}>
+                            {format_message(hd(messages), sender_name)}
                           </span>
-                          <span :if={kind == :leave}>
-                            {format_message(message, fetch_sender(@participants, sender_id).name)}
+                          <span :if={hd(messages).kind == :leave}>
+                            {format_message(hd(messages), sender_name)}
                           </span>
                         </div>
                       </div>
@@ -235,36 +249,43 @@ defmodule RoomyWeb.RoomLive do
                       <div class="px-4 py-2 hover:bg-slate-300">
                         <div class={["flex gap-2", if(sender_id == @id, do: "justify-end")]}>
                           <div :if={sender_id != @id} class="w-14 h-14 overflow-hidden rounded-2xl">
-                            {raw(fetch_sender(@participants, sender_id).avatar)}
+                            {raw(sender_avatar)}
                           </div>
                           <div>
                             <div class={[
                               "font-semibold text-dark",
                               if(sender_id == @id, do: "text-right")
                             ]}>
-                              {fetch_sender(@participants, sender_id).name}
+                              {sender_name}
+                              <%!--
+                              Should be where the message is now that they are grouped together
                               <span :if={kind == :destroy_after}>
                                 Self destroy in {DateTime.diff(execute_at, DateTime.utc_now())} seconds
                               </span>
+                              --%>
                             </div>
 
-                            <div class={[
-                              "max-w-prose break-words p-4 mt-1 rounded-3xl",
-                              if(sender_id == @id,
-                                do: "rounded-tr-sm bg-bubble_2",
-                                else: "rounded-tl-sm bg-bubble_1"
-                              )
-                            ]}>
-                              <p>{render_message(message)}</p>
-                              <div class="text-xs text-slate-600 text-right">
-                                {sent_at
-                                |> DateTime.shift_zone!(@timezone)
-                                |> Calendar.strftime("%H:%M")}
+                            <div :for={
+                              %Message{sender_id: sender_id, sent_at: sent_at} = message <- messages
+                            }>
+                              <div class={[
+                                "max-w-prose break-words p-4 mt-1 rounded-3xl",
+                                if(sender_id == @id,
+                                  do: "rounded-tr-md bg-bubble_2",
+                                  else: "rounded-tl-md bg-bubble_1"
+                                )
+                              ]}>
+                                <p>{render_message(message)}</p>
+                                <div class="text-xs text-slate-600 text-right">
+                                  {sent_at
+                                  |> DateTime.shift_zone!(@timezone)
+                                  |> Calendar.strftime("%H:%M")}
+                                </div>
                               </div>
                             </div>
                           </div>
                           <div :if={sender_id == @id} class="w-14 h-14 overflow-hidden rounded-2xl">
-                            {raw(fetch_sender(@participants, sender_id).avatar)}
+                            {raw(sender_avatar)}
                           </div>
                         </div>
                       </div>
@@ -770,7 +791,7 @@ defmodule RoomyWeb.RoomLive do
     Bus.publish(room_topic(room_id), {:leave, id})
 
     publish_message_to_all(
-      %Message{type: :system, kind: :leave, sender_id: id},
+      %Message{id: UUID.uuid4(), type: :system, kind: :leave, sender_id: id},
       room_id,
       participants
     )
@@ -924,7 +945,7 @@ defmodule RoomyWeb.RoomLive do
 
     publish_message(
       participant,
-      %Message{type: :system, kind: :join, sender_id: my_id},
+      %Message{id: UUID.uuid4(), type: :system, kind: :join, sender_id: my_id},
       room_id
     )
 
@@ -1025,7 +1046,9 @@ defmodule RoomyWeb.RoomLive do
             %Participant{p | typing: false}
           end)
 
-        assign(socket, participants: updated_participants)
+        socket
+        |> assign(participants: updated_participants)
+        |> to_storage
       else
         socket
       end
@@ -1156,6 +1179,24 @@ defmodule RoomyWeb.RoomLive do
       |> Base.encode64()
 
     push_event(socket, "save_to_local_storage", %{value: storage})
+  end
+
+  defp group_messages(messages, participants) do
+    messages
+    |> Enum.chunk_by(fn %Message{id: id, sender_id: sender_id, type: type} ->
+      (type == :system and id) || (type != :system and sender_id)
+    end)
+    |> Enum.map(fn chunk ->
+      sender_id = hd(chunk).sender_id
+      %Participant{name: name, avatar: avatar} = fetch_sender(participants, sender_id)
+
+      %GroupedMessage{
+        sender_id: sender_id,
+        sender_name: name,
+        sender_avatar: avatar,
+        messages: chunk
+      }
+    end)
   end
 
   defp room_topic(room_id) do
