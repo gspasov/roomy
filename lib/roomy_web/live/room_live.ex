@@ -17,34 +17,23 @@ defmodule RoomyWeb.RoomLive do
       field(:aes_key, binary())
       field(:typing, boolean(), default: false)
       field(:avatar, String.t(), required: false)
-      field(:active, boolean(), default: true)
+      field(:online?, boolean(), default: true)
+      field(:left?, boolean(), default: false)
     end
 
-    def compare(%__MODULE__{name: name_1, active: active_1}, %__MODULE__{
-          name: name_2,
-          active: active_2
-        }) do
-      case {active_1, active_2} do
-        {true, false} ->
-          :lt
+    def compare(%__MODULE__{name: name_1}, %__MODULE__{name: name_2}) do
+      n1 = String.downcase(name_1) |> String.normalize(:nfkd)
+      n2 = String.downcase(name_2) |> String.normalize(:nfkd)
 
-        {false, true} ->
+      cond do
+        n1 > n2 ->
           :gt
 
-        _ ->
-          n1 = String.downcase(name_1) |> String.normalize(:nfkd)
-          n2 = String.downcase(name_2) |> String.normalize(:nfkd)
+        n1 < n2 ->
+          :lt
 
-          cond do
-            n1 > n2 ->
-              :gt
-
-            n1 < n2 ->
-              :lt
-
-            true ->
-              :eq
-          end
+        true ->
+          :eq
       end
     end
   end
@@ -96,8 +85,6 @@ defmodule RoomyWeb.RoomLive do
   # @TODO: Pasting image url should display the image in the chat instead
   # @TODO: Ability to react to messages
   # @TODO: Ability to reply to a message
-  # @TODO: Show if person is online
-  # @TODO: Add 'seen' message functionality
   # @TODO: Make the UI prettier
 
   @impl true
@@ -177,14 +164,15 @@ defmodule RoomyWeb.RoomLive do
                   <div class="columns-2 gap-2">
                     <div
                       :for={
-                        %Participant{id: id, name: name, active: active} <-
+                        %Participant{id: id, name: name, online?: online?} <-
                           @participants
                           |> Map.values()
+                          |> Enum.reject(fn %Participant{left?: left?} -> left? end)
                           |> Enum.sort(Participant)
                       }
                       class={[
                         "flex flex-col items-center gap-1 max-w-20 p-2 mb-2 rounded-xl cursor-default break-inside-avoid",
-                        if(active, do: "hover:bg-slate-600", else: "opacity-50"),
+                        if(online?, do: "hover:bg-slate-600", else: "opacity-50"),
                         if(id == @id, do: "bg-yellow-900", else: "bg-slate-700")
                       ]}
                     >
@@ -774,13 +762,20 @@ defmodule RoomyWeb.RoomLive do
   end
 
   @impl true
-  def handle_event("leave_room", _params, socket) do
-    new_socket =
-      socket
-      |> push_event("clear_storage", %{})
-      |> push_navigate(to: ~p"/")
+  def handle_event(
+        "leave_room",
+        _params,
+        %{assigns: %{id: id, room_id: room_id, participants: participants}} = socket
+      ) do
+    Bus.publish(room_topic(room_id), {:leave, id})
 
-    {:noreply, new_socket}
+    publish_message_to_all(
+      %Message{type: :system, kind: :leave, sender_id: id},
+      room_id,
+      participants
+    )
+
+    {:noreply, socket}
   end
 
   @impl true
@@ -887,10 +882,12 @@ defmodule RoomyWeb.RoomLive do
       |> Crypto.generate_shared_secret(public_key)
       |> Crypto.derive_aes_key()
 
+    already_know_participant? = Map.has_key?(participants, id)
+
     updated_participants =
       Map.put(participants, id, %Participant{id: id, name: name, aes_key: aes_key})
 
-    if id != my_id do
+    if id != my_id and not already_know_participant? do
       room_id
       |> participant_topic(id)
       |> Bus.publish({:handshake, my_id, my_name, my_public_key})
@@ -941,13 +938,42 @@ defmodule RoomyWeb.RoomLive do
   end
 
   @impl true
-  def handle_info({Bus, {:leave, id}}, %{assigns: %{participants: participants}} = socket) do
+  def handle_info(
+        {Bus, {:leave, id}},
+        %{assigns: %{id: my_id, room_id: room_id, participants: participants}} = socket
+      ) do
+    new_socket =
+      if id == my_id do
+        room_topic = room_topic(room_id)
+        participant_topic = participant_topic(room_id, id)
+        Bus.unsubscribe(room_topic)
+        Bus.unsubscribe(participant_topic)
+
+        socket
+        |> push_event("clear_storage", %{})
+        |> push_navigate(to: ~p"/")
+      else
+        socket
+        |> assign(
+          participants:
+            Map.update!(participants, id, fn %Participant{} = participant ->
+              %Participant{participant | left?: true}
+            end)
+        )
+        |> to_storage
+      end
+
+    {:noreply, new_socket}
+  end
+
+  @impl true
+  def handle_info({Bus, {:close_page, id}}, %{assigns: %{participants: participants}} = socket) do
     new_socket =
       socket
       |> assign(
         participants:
           Map.update!(participants, id, fn %Participant{} = participant ->
-            %Participant{participant | active: false}
+            %Participant{participant | online?: false}
           end)
       )
       |> to_storage
@@ -1028,27 +1054,20 @@ defmodule RoomyWeb.RoomLive do
   end
 
   @impl true
-  def terminate(
-        _reason,
-        %{assigns: %{id: id, room_id: room_id, participants: participants}}
-      ) do
+  def terminate(_reason, %{assigns: %{id: id, room_id: room_id}}) do
     if id do
       room_topic = room_topic(room_id)
       participant_topic = participant_topic(room_id, id)
       Bus.unsubscribe(room_topic)
       Bus.unsubscribe(participant_topic)
 
+      # @NOTE: Do not send close_page message if there is another tab (with the chat) open.
+      # User is not considered offline if he still has a page with the chat open.
       participant_topic
       |> Bus.get_subscribers()
       |> Kernel.==([])
       |> if do
-        Bus.publish(room_topic, {:leave, id})
-
-        publish_message_to_all(
-          %Message{type: :system, kind: :leave, sender_id: id},
-          room_id,
-          participants
-        )
+        Bus.publish(room_topic, {:close_page, id})
       end
     end
   end
