@@ -38,6 +38,15 @@ defmodule RoomyWeb.RoomLive do
     end
   end
 
+  defmodule Reaction do
+    use TypedStruct
+
+    typedstruct required: true do
+      field(:emoji, String.t())
+      field(:participant_id, String.t())
+    end
+  end
+
   defmodule Message do
     use TypedStruct
 
@@ -53,6 +62,8 @@ defmodule RoomyWeb.RoomLive do
       field(:content, binary(), required: false)
       field(:execute_at, DateTime.t(), required: false)
       field(:sent_at, DateTime.t())
+      field(:reply_for, __MODULE__.t(), required: nil)
+      field(:reactions, [Reaction.t()], default: [])
     end
   end
 
@@ -98,10 +109,11 @@ defmodule RoomyWeb.RoomLive do
   # @TODO: Make it mobile friendly
   # @TODO: Store encrypted messages in DB. Figure out how to encrypt/decrypt them efficiently for a group chat
   # @TODO: Pasting image url should display the image in the chat instead
-  # @TODO: Ability to react to messages
-  # @TODO: Ability to reply to a message
+  # @TODO: Ability to react to messages with any emoji
   # @TODO: Make the UI prettier
   # @TODO: Fix issue when multiple windows of the same User is open Join message is duplicated
+  # @TODO: Finish up message date/time. It does not show day nor date.
+  # @TODO: Start to separate things into components.
 
   @impl true
   def render(assigns) do
@@ -195,7 +207,7 @@ defmodule RoomyWeb.RoomLive do
                       ]}
                     >
                       <div class="w-14 h-14 overflow-hidden rounded-2xl">
-                        {raw(fetch_sender(@participants, id).avatar)}
+                        {raw(fetch_participant(@participants, id).avatar)}
                       </div>
                       <div class="text-center">{name}</div>
                     </div>
@@ -212,7 +224,7 @@ defmodule RoomyWeb.RoomLive do
               <%!-- Chat area --%>
               <div class="flex flex-col relative grow bg-my_gray text-purple">
                 <%!-- Chat header --%>
-                <div class="absolute w-full h-20 px-8 py-4 bg-opacity-50 backdrop-blur">
+                <div class="absolute w-full h-20 px-8 py-4 bg-opacity-50 backdrop-blur z-50">
                   <div class="text-2xl text-dark font-semibold">Office chat</div>
                   <div class="text-xs font-semibold">{map_size(@participants)} members</div>
                 </div>
@@ -246,12 +258,12 @@ defmodule RoomyWeb.RoomLive do
                         </div>
                       </div>
                     <% else %>
-                      <div class="px-4 py-2 hover:bg-slate-300">
+                      <div class="px-4 py-2">
                         <div class={["flex gap-2", if(sender_id == @id, do: "justify-end")]}>
                           <div :if={sender_id != @id} class="w-14 h-14 overflow-hidden rounded-2xl">
                             {raw(sender_avatar)}
                           </div>
-                          <div>
+                          <div class="flex flex-col flex-grow gap-1">
                             <div class={[
                               "font-semibold text-dark",
                               if(sender_id == @id, do: "text-right")
@@ -265,22 +277,118 @@ defmodule RoomyWeb.RoomLive do
                               --%>
                             </div>
 
-                            <div :for={
-                              %Message{sender_id: sender_id, sent_at: sent_at} = message <- messages
-                            }>
-                              <div class={[
-                                "max-w-prose break-words p-4 mt-1 rounded-3xl",
-                                if(sender_id == @id,
-                                  do: "rounded-tr-md bg-bubble_2",
-                                  else: "rounded-tl-md bg-bubble_1"
-                                )
-                              ]}>
-                                <p>{render_message(message)}</p>
-                                <div class="text-xs text-slate-600 text-right">
-                                  {sent_at
-                                  |> DateTime.shift_zone!(@timezone)
-                                  |> Calendar.strftime("%H:%M")}
+                            <%!-- Grouped message bubbles --%>
+                            <div
+                              :for={
+                                %Message{
+                                  id: message_id,
+                                  sender_id: sender_id,
+                                  sent_at: sent_at,
+                                  reactions: reactions,
+                                  reply_for: reply_for_message
+                                } =
+                                  message <- messages
+                              }
+                              class={[
+                                "flex items-center group gap-4 justify-start",
+                                if(sender_id == @id, do: "flex-row-reverse")
+                              ]}
+                            >
+                              <div class="flex flex-col gap-1">
+                                <div
+                                  :if={reply_for_message}
+                                  class={[
+                                    "flex flex-col -mb-4",
+                                    if(reply_for_message.sender_id == @id && message.sender_id != @id,
+                                      do: "items-start",
+                                      else: "items-end"
+                                    )
+                                  ]}
+                                >
+                                  <div class={[
+                                    "flex items-center text-xs text-dark",
+                                    if(message.sender_id != @id, do: "self-start")
+                                  ]}>
+                                    <Icon.reply_fill />
+                                    <span>
+                                      replied to
+                                      <span class="font-medium">
+                                        {(reply_for_message.sender_id == @id && "You") ||
+                                          fetch_participant(
+                                            @participants,
+                                            reply_for_message.sender_id
+                                          ).name}
+                                      </span>
+                                    </span>
+                                  </div>
+                                  <div class={[
+                                    "max-w-prose min-w-24 w-fit break-words py-4 px-6 text-slate-600 rounded-3xl",
+                                    if(reply_for_message.sender_id == @id,
+                                      do: "bg-bubble_2 rounded-tr-md",
+                                      else: "bg-bubble_1 rounded-tl-md"
+                                    ),
+                                    if(message.sender_id != @id,
+                                      do: "rounded-bl-none",
+                                      else: "rounded-br-none"
+                                    )
+                                  ]}>
+                                    <p>{render_message(reply_for_message)}</p>
+                                    <div class="text-xs text-right">
+                                      {reply_for_message.sent_at
+                                      |> DateTime.shift_zone!(@timezone)
+                                      |> Calendar.strftime("%H:%M")}
+                                    </div>
+                                  </div>
                                 </div>
+                                <%!-- Message bubble --%>
+                                <%!-- reply_for_message.sender_id == message.sender_id && message.sender_id == @id -> self-end
+                                reply_for_message.sender_id == message.sender_id && message.sender_id != @id -> self-start
+                                message.sender_id == @id -> self-end
+                                message.sender_id != @id -> self-start --%>
+                                <div class={[
+                                  if(reply_for_message && message.sender_id == @id, do: "self-end")
+                                ]}>
+                                  <div class={[
+                                    "max-w-prose min-w-24 w-fit break-words py-4 px-6 rounded-3xl",
+                                    if(sender_id == @id,
+                                      do: "rounded-tr-md bg-bubble_2 hover:bg-bubble_2_dark",
+                                      else: "rounded-tl-md bg-bubble_1 hover:bg-bubble_1_dark"
+                                    )
+                                  ]}>
+                                    <p>{render_message(message)}</p>
+                                    <div class="text-xs text-slate-600 text-right">
+                                      {sent_at
+                                      |> DateTime.shift_zone!(@timezone)
+                                      |> Calendar.strftime("%H:%M")}
+                                    </div>
+                                  </div>
+                                  <div
+                                    :if={length(reactions) > 0}
+                                    class="w-fit rounded-xl px-2 py-1 text-xs text-white font-bold bg-slate-400 -mt-4 ml-4"
+                                  >
+                                    👍️ {length(reactions)}
+                                  </div>
+                                </div>
+                              </div>
+                              <%!-- Message bubble context menu --%>
+                              <div class={[
+                                "flex items-center gap-1 h-fit rounded-2xl px-3 py-1 hidden bg-slate-500 z-10 text-white opacity-85 hover:shadow-lg hover:opacity-100 group-hover:flex"
+                              ]}>
+                                <button
+                                  class="h-6 w-6 rounded cursor-pointer hover:bg-slate-400/70 hover:-translate-1 hover:scale-110"
+                                  phx-click="react"
+                                  phx-value-message_id={message_id}
+                                >
+                                  👍️
+                                </button>
+                                <button
+                                  class="flex items-center justify-center h-6 w-6 rounded cursor-pointer hover:bg-slate-400/70 hover:-translate-1 hover:scale-110"
+                                  phx-click={JS.focus(to: "#message_box") |> JS.push("reply")}
+                                  phx-value-message_id={message_id}
+                                  phx-value-participant_id={sender_id}
+                                >
+                                  <Icon.reply_fill />
+                                </button>
                               </div>
                             </div>
                           </div>
@@ -293,8 +401,21 @@ defmodule RoomyWeb.RoomLive do
                   </div>
                 </div>
 
-                <%!-- Participant typing visualization section --%>
-                <div class="absolute w-full bottom-16 flex gap-2 px-6 bg-opacity-50 backdrop-blur">
+                <div class="flex gap-2 ml-6">
+                  <%!-- Replying to bubble --%>
+                  <div
+                    :if={@replying?}
+                    class="flex items-center text-xs py-1 pl-4 pr-2 mb-1 w-fit font-medium text-white rounded-xl bg-slate-500"
+                  >
+                    Replying to
+                    <span class="font-semibold pl-1 pr-2">
+                      {fetch_participant(@participants, @replying_to).name}
+                    </span>
+                    <button phx-click="cancel_reply">
+                      <Icon.x_circle_fill class="text-slate-300 hover:text-slate-100" />
+                    </button>
+                  </div>
+                  <%!-- Participant typing visualization section --%>
                   <div
                     :for={
                       {_, %Participant{avatar: avatar}} <-
@@ -370,7 +491,7 @@ defmodule RoomyWeb.RoomLive do
                     ]}
                     phx-click-away={hide("#emoji_dialog")}
                   >
-                    <h2 class="font-semibold text-3xl text-white px-4 pt-2">Emojis</h2>
+                    <h2 class="font-semibold text-3xl text-white px-4 pt-2 z-20">Emojis</h2>
                     <div class="w-96 h-96 m-2 mb-0 flex flex-col gap-10 overflow-y-auto">
                       <div :for={{_group, emojis} <- @emoji_groups} class="p-2 grid grid-cols-7 gap-4">
                         <span
@@ -388,7 +509,7 @@ defmodule RoomyWeb.RoomLive do
                   <%!-- Message type dialog --%>
                   <div
                     id="message_type_dialog"
-                    class="absolute px-4 py-2 m-2 flex flex-col gap-4 rounded bottom-full right-0 bg-slate-500 overflow-y-auto hidden"
+                    class="absolute px-4 py-2 m-2 z-20 flex flex-col gap-4 rounded bottom-full right-0 bg-slate-500 overflow-y-auto hidden"
                     phx-click-away={hide("#message_type_dialog")}
                   >
                     <p class="text-md font-semibold">Message Type</p>
@@ -474,7 +595,7 @@ defmodule RoomyWeb.RoomLive do
                   />
                   <button
                     class={[
-                      "absolute right-28 top-2 p-2 font-semibold text-xs rounded-md border border-indigo-500 text-indigo-500 transition ease-in-out delay-50 duration-300 hover:-translate-1 hover:scale-110 hover:bg-indigo-100",
+                      "absolute right-28 top-2 p-2 z-20 font-semibold text-xs rounded-md border border-indigo-500 text-indigo-500 transition ease-in-out delay-50 duration-300 hover:-translate-1 hover:scale-110 hover:bg-indigo-100",
                       if(@gif_dialog_open, do: "bg-indigo-200", else: "")
                     ]}
                     type="button"
@@ -536,7 +657,10 @@ defmodule RoomyWeb.RoomLive do
         emoji_groups: emoji_groups,
         emoji_button_unicode: get_random_emoji_unicode(emoji_groups),
         timezone: socket.private[:connect_params]["timezone"],
-        typing_refs: %{}
+        typing_refs: %{},
+        replying?: false,
+        replying_to: nil,
+        replying_for: nil
       )
 
     {:ok, new_socket}
@@ -637,7 +761,10 @@ defmodule RoomyWeb.RoomLive do
             room_id: room_id,
             participants: participants,
             message_type: message_type,
-            message_variant: message_variant
+            message_variant: message_variant,
+            replying?: replying?,
+            replying_for: replying_for,
+            chat_history: chat_history
           }
         } = socket
       ) do
@@ -655,7 +782,9 @@ defmodule RoomyWeb.RoomLive do
         sender_id: id,
         content: message,
         kind: message_type,
-        execute_at: execute_at
+        execute_at: execute_at,
+        reply_for:
+          replying? && Enum.find(chat_history, fn %Message{id: mid} -> mid == replying_for end)
       }
 
       case message_type do
@@ -671,7 +800,29 @@ defmodule RoomyWeb.RoomLive do
       end
     end
 
-    {:noreply, assign(socket, message_input: "")}
+    new_socket =
+      assign(socket, message_input: "", replying?: false, replying_to: nil, replying_for: nil)
+
+    {:noreply, new_socket}
+  end
+
+  @impl true
+  def handle_event(
+        "reply",
+        %{"participant_id" => participant_id, "message_id" => message_id},
+        socket
+      ) do
+    new_socket =
+      assign(socket, replying?: true, replying_to: participant_id, replying_for: message_id)
+
+    {:noreply, new_socket}
+  end
+
+  @impl true
+  def handle_event("cancel_reply", _, socket) do
+    new_socket = assign(socket, replying?: false, replying_to: nil, replying_for: nil)
+
+    {:noreply, new_socket}
   end
 
   @impl true
@@ -703,6 +854,7 @@ defmodule RoomyWeb.RoomLive do
       ) do
     publish_message_to_all(
       %Message{
+        id: UUID.uuid4(),
         type: :render,
         kind: :gif,
         sender_id: id,
@@ -750,6 +902,19 @@ defmodule RoomyWeb.RoomLive do
       end
 
     {:noreply, new_socket}
+  end
+
+  @impl true
+  def handle_event(
+        "react",
+        %{"message_id" => message_id},
+        %{assigns: %{id: id, room_id: room_id}} = socket
+      ) do
+    room_id
+    |> room_topic()
+    |> Bus.publish({:react, message_id, %Reaction{emoji: "👍️", participant_id: id}})
+
+    {:noreply, socket}
   end
 
   @impl true
@@ -855,7 +1020,7 @@ defmodule RoomyWeb.RoomLive do
       |> push_event("message:new", %{is_sender: true})
       |> then(fn new_socket ->
         if sender_id != my_id do
-          %Participant{name: sender_name} = fetch_sender(participants, sender_id)
+          %Participant{name: sender_name} = fetch_participant(participants, sender_id)
 
           {title, body} =
             case {type, kind} do
@@ -882,6 +1047,32 @@ defmodule RoomyWeb.RoomLive do
       end)
 
     {:noreply, to_storage(new_socket)}
+  end
+
+  @impl true
+  def handle_info(
+        {Bus, {:react, message_id, %Reaction{participant_id: participant_id} = reaction}},
+        %{assigns: %{chat_history: messages}} = socket
+      ) do
+    updated_message_history =
+      Enum.map(messages, fn %Message{id: m_id, reactions: reactions} = m ->
+        if m_id == message_id and
+             (Enum.empty?(reactions) or
+                Enum.any?(reactions, fn %Reaction{participant_id: p_id} ->
+                  p_id != participant_id
+                end)) do
+          %Message{m | reactions: [reaction | reactions]}
+        else
+          m
+        end
+      end)
+
+    new_socket =
+      socket
+      |> assign(chat_history: updated_message_history)
+      |> to_storage
+
+    {:noreply, new_socket}
   end
 
   @impl true
@@ -1141,9 +1332,9 @@ defmodule RoomyWeb.RoomLive do
     end
   end
 
-  defp fetch_sender(participants, sender_id) do
+  defp fetch_participant(participants, participant_id) do
     participants
-    |> Enum.find(fn {_, %Participant{id: id}} -> id == sender_id end)
+    |> Enum.find(fn {_, %Participant{id: id}} -> id == participant_id end)
     |> elem(1)
   end
 
@@ -1188,7 +1379,7 @@ defmodule RoomyWeb.RoomLive do
     end)
     |> Enum.map(fn chunk ->
       sender_id = hd(chunk).sender_id
-      %Participant{name: name, avatar: avatar} = fetch_sender(participants, sender_id)
+      %Participant{name: name, avatar: avatar} = fetch_participant(participants, sender_id)
 
       %GroupedMessage{
         sender_id: sender_id,

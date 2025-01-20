@@ -20,6 +20,23 @@ defmodule RoomyWeb.Icon do
 
   attr :class, :string, default: ""
 
+  def x_circle_fill(assigns) do
+    ~H"""
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="16"
+      height="16"
+      fill="currentColor"
+      class={@class}
+      viewBox="0 0 16 16"
+    >
+      <path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0M5.354 4.646a.5.5 0 1 0-.708.708L7.293 8l-2.647 2.646a.5.5 0 0 0 .708.708L8 8.707l2.646 2.647a.5.5 0 0 0 .708-.708L8.707 8l2.647-2.646a.5.5 0 0 0-.708-.708L8 7.293z" />
+    </svg>
+    """
+  end
+
+  attr :class, :string, default: ""
+
   def info_circle_fill(assigns) do
     ~H"""
     <svg
@@ -138,6 +155,23 @@ defmodule RoomyWeb.Icon do
         d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
       >
       </path>
+    </svg>
+    """
+  end
+
+  attr :class, :string, default: ""
+
+  def reply_fill(assigns) do
+    ~H"""
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="16"
+      height="16"
+      fill="currentColor"
+      class={@class}
+      viewBox="0 0 16 16"
+    >
+      <path d="M5.921 11.9 1.353 8.62a.72.72 0 0 1 0-1.238L5.921 4.1A.716.716 0 0 1 7 4.719V6c1.5 0 6 0 7 8-2.5-4.5-7-4-7-4v1.281c0 .56-.606.898-1.079.62z" />
     </svg>
     """
   end

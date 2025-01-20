@@ -12,6 +12,8 @@ module.exports = {
         my_gray: "#F1F0F3",
         bubble_1: "#EDDBDB",
         bubble_2: "#D7EDC1",
+        bubble_1_dark: "#E4D1D1",
+        bubble_2_dark: "#CAE3B7",
         purple: "#1B0036",
         dark: "#250036",
       },
