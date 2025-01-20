@@ -451,7 +451,7 @@ defmodule RoomyWeb.RoomLive do
                       "absolute m-2 w-96 min-h-96 max-h-[500px] overflow-y-auto rounded bottom-full right-0 bg-slate-500 hidden",
                       if(not Enum.empty?(@gifs), do: "p-2")
                     ]}
-                    phx-click-away={hide("#gif_dialog") |> JS.push("gif_dialog:toggle")}
+                    phx-click-away={hide("#gif_dialog")}
                   >
                     <div class="columns-2 gap-2">
                       <span
@@ -595,11 +595,10 @@ defmodule RoomyWeb.RoomLive do
                   />
                   <button
                     class={[
-                      "absolute right-28 top-2 p-2 z-20 font-semibold text-xs rounded-md border border-indigo-500 text-indigo-500 transition ease-in-out delay-50 duration-300 hover:-translate-1 hover:scale-110 hover:bg-indigo-100",
-                      if(@gif_dialog_open, do: "bg-indigo-200", else: "")
+                      "absolute right-28 top-2 p-2 z-20 font-semibold text-xs rounded-md border border-indigo-500 text-indigo-500 transition ease-in-out delay-50 duration-300 hover:-translate-1 hover:scale-110 hover:bg-indigo-100"
                     ]}
                     type="button"
-                    phx-click={show("#gif_dialog") |> JS.push("gif_dialog:toggle")}
+                    phx-click={show("#gif_dialog")}
                   >
                     GIF
                   </button>
@@ -648,7 +647,6 @@ defmodule RoomyWeb.RoomLive do
         public_key: nil,
         private_key: nil,
         room_id: room_id,
-        gif_dialog_open: false,
         message_type: :text,
         message_variant: nil,
         message_timer: nil,
@@ -821,27 +819,6 @@ defmodule RoomyWeb.RoomLive do
   @impl true
   def handle_event("cancel_reply", _, socket) do
     new_socket = assign(socket, replying?: false, replying_to: nil, replying_for: nil)
-
-    {:noreply, new_socket}
-  end
-
-  @impl true
-  def handle_event(
-        "gif_dialog:toggle",
-        _,
-        %{assigns: %{gifs: _gifs, giphy_client: _client, gif_dialog_open: opened?}} = socket
-      ) do
-    # new_socket =
-    #   with false <- opened?,
-    #        a when a == [] <- gifs,
-    #        {:ok, gifs} <- Giphy.trending_gifs(client, %{limit: 5}) do
-    #     assign(socket, gifs: gifs)
-    #   else
-    #     _ -> socket
-    #   end
-    #   |> assign(gif_dialog_open: not opened?)
-
-    new_socket = assign(socket, gif_dialog_open: not opened?)
 
     {:noreply, new_socket}
   end
