@@ -1253,7 +1253,7 @@ defmodule RoomyWeb.RoomLive do
         %{assigns: %{chat_history: messages}} = socket
       ) do
     updated_message_history =
-      Enum.drop_while(messages, fn %Message{id: id} -> id == message_id end)
+      Enum.reject(messages, fn %Message{id: id} -> id == message_id end)
 
     {:noreply, assign(socket, chat_history: updated_message_history)}
   end
