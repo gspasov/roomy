@@ -234,7 +234,7 @@ defmodule RoomyWeb.RoomLive do
                   class="flex flex-col gap-2 pt-24 pb-2 grow overflow-y-auto"
                   phx-hook="ScrollToBottom"
                 >
-                  <%!-- Messages --%>
+                  <%!-- Grouped messages by user --%>
                   <div :for={
                     %GroupedMessage{
                       sender_id: sender_id,
@@ -269,15 +269,9 @@ defmodule RoomyWeb.RoomLive do
                               if(sender_id == @id, do: "text-right")
                             ]}>
                               {sender_name}
-                              <%!--
-                              Should be where the message is now that they are grouped together
-                              <span :if={kind == :destroy_after}>
-                                Self destroy in {DateTime.diff(execute_at, DateTime.utc_now())} seconds
-                              </span>
-                              --%>
                             </div>
 
-                            <%!-- Grouped message bubbles --%>
+                            <%!-- Individual consecutive User message bubbles --%>
                             <div
                               :for={
                                 %Message{
@@ -285,6 +279,7 @@ defmodule RoomyWeb.RoomLive do
                                   sender_id: sender_id,
                                   sent_at: sent_at,
                                   reactions: reactions,
+                                  kind: kind,
                                   reply_for: reply_for_message
                                 } =
                                   message <- messages
@@ -299,16 +294,10 @@ defmodule RoomyWeb.RoomLive do
                                   :if={reply_for_message}
                                   class={[
                                     "flex flex-col -mb-4",
-                                    if(reply_for_message.sender_id == @id && message.sender_id != @id,
-                                      do: "items-start",
-                                      else: "items-end"
-                                    )
+                                    if(message.sender_id == @id, do: "items-end")
                                   ]}
                                 >
-                                  <div class={[
-                                    "flex items-center text-xs text-dark",
-                                    if(message.sender_id != @id, do: "self-start")
-                                  ]}>
+                                  <div class="flex items-center text-xs text-dark">
                                     <Icon.reply_fill />
                                     <span>
                                       replied to
@@ -341,33 +330,30 @@ defmodule RoomyWeb.RoomLive do
                                   </div>
                                 </div>
                                 <%!-- Message bubble --%>
-                                <%!-- reply_for_message.sender_id == message.sender_id && message.sender_id == @id -> self-end
-                                reply_for_message.sender_id == message.sender_id && message.sender_id != @id -> self-start
-                                message.sender_id == @id -> self-end
-                                message.sender_id != @id -> self-start --%>
                                 <div class={[
-                                  if(reply_for_message && message.sender_id == @id, do: "self-end")
+                                  "max-w-prose min-w-24 w-fit break-words py-4 px-6 rounded-3xl",
+                                  if(message.sender_id == @id, do: "self-end"),
+                                  if(sender_id == @id,
+                                    do: "rounded-tr-md bg-bubble_2 hover:bg-bubble_2_dark",
+                                    else: "rounded-tl-md bg-bubble_1 hover:bg-bubble_1_dark"
+                                  )
                                 ]}>
-                                  <div class={[
-                                    "max-w-prose min-w-24 w-fit break-words py-4 px-6 rounded-3xl",
-                                    if(sender_id == @id,
-                                      do: "rounded-tr-md bg-bubble_2 hover:bg-bubble_2_dark",
-                                      else: "rounded-tl-md bg-bubble_1 hover:bg-bubble_1_dark"
-                                    )
-                                  ]}>
-                                    <p>{render_message(message)}</p>
-                                    <div class="text-xs text-slate-600 text-right">
+                                  <p>{render_message(message)}</p>
+
+                                  <div class="flex text-center items-center justify-end text-xs gap-1 text-slate-600 text-right">
+                                    <Icon.stopwatch :if={kind == :destroy_after} />
+                                    <span class="leading-[11px]">
                                       {sent_at
                                       |> DateTime.shift_zone!(@timezone)
                                       |> Calendar.strftime("%H:%M")}
-                                    </div>
+                                    </span>
                                   </div>
-                                  <div
-                                    :if={length(reactions) > 0}
-                                    class="w-fit rounded-xl px-2 py-1 text-xs text-white font-bold bg-slate-400 -mt-4 ml-4"
-                                  >
-                                    👍️ {length(reactions)}
-                                  </div>
+                                </div>
+                                <div
+                                  :if={length(reactions) > 0}
+                                  class="w-fit rounded-xl px-2 py-1 text-xs text-white font-bold bg-slate-400 -mt-4 ml-4"
+                                >
+                                  👍️ {length(reactions)}
                                 </div>
                               </div>
                               <%!-- Message bubble context menu --%>
@@ -696,11 +682,21 @@ defmodule RoomyWeb.RoomLive do
           room_id |> room_topic() |> Bus.publish({:join, id, name, public_key})
         end
 
+        updated_chat_history =
+          Enum.reject(chat_history, fn
+            %Message{kind: :destroy_after, execute_at: destroy_at} = msg ->
+              DateTime.before?(destroy_at, DateTime.utc_now()) ||
+                (schedule_self_deleting_message(msg) && false)
+
+            %Message{} ->
+              false
+          end)
+
         assign(socket,
           id: id,
           name: AsyncResult.ok(name),
           message_input: message_input,
-          chat_history: chat_history,
+          chat_history: updated_chat_history,
           participants: participants,
           public_key: public_key,
           private_key: private_key,
@@ -966,22 +962,14 @@ defmodule RoomyWeb.RoomLive do
       ) do
     %Participant{aes_key: aes_key} = Map.fetch!(participants, id)
 
-    %Message{type: type, kind: kind, sender_id: sender_id, execute_at: execute_at} =
+    %Message{type: type, kind: kind, sender_id: sender_id} =
       decrypted_message =
       encrypted_message
       |> Crypto.decrypt_message(aes_key)
       |> :erlang.binary_to_term()
 
-    case {type, kind} do
-      {:text, :destroy_after} ->
-        Process.send_after(
-          self(),
-          {:self_destroy, decrypted_message},
-          DateTime.diff(execute_at, DateTime.utc_now(), :millisecond)
-        )
-
-      _ ->
-        nil
+    if type == :text and kind == :destroy_after do
+      schedule_self_deleting_message(decrypted_message)
     end
 
     new_socket =
@@ -1365,6 +1353,14 @@ defmodule RoomyWeb.RoomLive do
         messages: chunk
       }
     end)
+  end
+
+  defp schedule_self_deleting_message(%Message{execute_at: execute_at} = message) do
+    Process.send_after(
+      self(),
+      {:self_destroy, message},
+      DateTime.diff(execute_at, DateTime.utc_now(), :millisecond)
+    )
   end
 
   defp room_topic(room_id) do
