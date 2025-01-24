@@ -7,6 +7,7 @@ defmodule RoomyWeb.RoomLive do
   alias Roomy.Crypto
   alias Roomy.Bus
   alias Phoenix.LiveView.AsyncResult
+  alias RoomyWeb.Components
 
   defmodule Participant do
     use TypedStruct
@@ -277,9 +278,6 @@ defmodule RoomyWeb.RoomLive do
                                 %Message{
                                   id: message_id,
                                   sender_id: sender_id,
-                                  sent_at: sent_at,
-                                  reactions: reactions,
-                                  kind: kind,
                                   reply_for: reply_for_message
                                 } =
                                   message <- messages
@@ -290,71 +288,33 @@ defmodule RoomyWeb.RoomLive do
                               ]}
                             >
                               <div class="flex flex-col gap-1">
-                                <div
+                                <%!-- Maybe Reply Message bubble --%>
+                                <Components.message_bubble
                                   :if={reply_for_message}
-                                  class={[
-                                    "flex flex-col -mb-4",
-                                    if(message.sender_id == @id, do: "items-end")
-                                  ]}
+                                  message={reply_for_message}
+                                  timezone={@timezone}
+                                  user_id={@id}
+                                  reply_to={
+                                    (reply_for_message.sender_id == @id && "You") ||
+                                      fetch_participant(
+                                        @participants,
+                                        reply_for_message.sender_id
+                                      ).name
+                                  }
+                                  replying?={message.sender_id == @id}
+                                  reply?={true}
                                 >
-                                  <div class="flex items-center text-xs text-dark">
-                                    <Icon.reply_fill />
-                                    <span>
-                                      replied to
-                                      <span class="font-medium">
-                                        {(reply_for_message.sender_id == @id && "You") ||
-                                          fetch_participant(
-                                            @participants,
-                                            reply_for_message.sender_id
-                                          ).name}
-                                      </span>
-                                    </span>
-                                  </div>
-                                  <div class={[
-                                    "max-w-prose min-w-24 w-fit break-words py-4 px-6 text-slate-600 rounded-3xl",
-                                    if(reply_for_message.sender_id == @id,
-                                      do: "bg-bubble_2 rounded-tr-md",
-                                      else: "bg-bubble_1 rounded-tl-md"
-                                    ),
-                                    if(message.sender_id != @id,
-                                      do: "rounded-bl-none",
-                                      else: "rounded-br-none"
-                                    )
-                                  ]}>
-                                    <p>{render_message(reply_for_message)}</p>
-                                    <div class="text-xs text-right">
-                                      {reply_for_message.sent_at
-                                      |> DateTime.shift_zone!(@timezone)
-                                      |> Calendar.strftime("%H:%M")}
-                                    </div>
-                                  </div>
-                                </div>
-                                <%!-- Message bubble --%>
-                                <div class={[
-                                  "max-w-prose min-w-24 w-fit break-words py-4 px-6 rounded-3xl",
-                                  if(message.sender_id == @id, do: "self-end"),
-                                  if(sender_id == @id,
-                                    do: "rounded-tr-md bg-bubble_2 hover:bg-bubble_2_dark",
-                                    else: "rounded-tl-md bg-bubble_1 hover:bg-bubble_1_dark"
-                                  )
-                                ]}>
-                                  <p>{render_message(message)}</p>
+                                  <p>{render_message(reply_for_message)}</p>
+                                </Components.message_bubble>
 
-                                  <div class="flex text-center items-center justify-end text-xs gap-1 text-slate-600 text-right">
-                                    <Icon.stopwatch :if={kind == :destroy_after} />
-                                    <span class="leading-[11px]">
-                                      {sent_at
-                                      |> DateTime.shift_zone!(@timezone)
-                                      |> Calendar.strftime("%H:%M")}
-                                    </span>
-                                  </div>
-                                </div>
-                                <div
-                                  :if={length(reactions) > 0}
-                                  class="w-fit rounded-xl px-2 py-1 text-xs text-white font-bold bg-slate-400 -mt-4 ml-4"
+                                <%!-- Message bubble --%>
+                                <Components.message_bubble
+                                  message={message}
+                                  timezone={@timezone}
+                                  user_id={@id}
                                 >
-                                  👍️ {length(reactions)}
-                                </div>
+                                  <p>{render_message(message)}</p>
+                                </Components.message_bubble>
                               </div>
                               <%!-- Message bubble context menu --%>
                               <div class={[
@@ -431,15 +391,8 @@ defmodule RoomyWeb.RoomLive do
                   phx-change="message_box:change"
                 >
                   <%!-- Gif Dialog --%>
-                  <div
-                    id="gif_dialog"
-                    class={[
-                      "absolute m-2 w-96 min-h-96 max-h-[500px] overflow-y-auto rounded bottom-full right-0 bg-slate-500 hidden",
-                      if(not Enum.empty?(@gifs), do: "p-2")
-                    ]}
-                    phx-click-away={hide("#gif_dialog")}
-                  >
-                    <div class="columns-2 gap-2">
+                  <Components.dialog id="gif_dialog" title="Gifs" loading={Enum.empty?(@gifs)}>
+                    <div class="columns-2 gap-2 px-2">
                       <span
                         :if={Enum.empty?(@gifs)}
                         class="absolute w-full h-full flex items-center justify-center"
@@ -467,112 +420,78 @@ defmodule RoomyWeb.RoomLive do
                         phx-value-gif={render_gif(medium_url, medium_width, medium_height)}
                       />
                     </div>
-                  </div>
+                  </Components.dialog>
 
                   <%!-- Emojis Dialog --%>
-                  <div
-                    id="emoji_dialog"
-                    class={[
-                      "absolute m-2 flex rounded bottom-full right-0 bg-slate-500 hidden"
-                    ]}
-                    phx-click-away={hide("#emoji_dialog")}
-                  >
-                    <h2 class="font-semibold text-3xl text-white px-4 pt-2 z-20">Emojis</h2>
-                    <div class="w-96 h-96 m-2 mb-0 flex flex-col gap-10 overflow-y-auto">
-                      <div :for={{_group, emojis} <- @emoji_groups} class="p-2 grid grid-cols-7 gap-4">
-                        <span
-                          :for={%Emoji{unicode: unicode} <- emojis}
-                          class="text-3xl cursor-pointer transition ease-in-out delay-50 duration-300 hover:-translate-1 hover:scale-110"
-                          phx-click="add_emoji"
-                          phx-value-unicode={unicode}
-                        >
-                          {unicode}
-                        </span>
-                      </div>
+                  <Components.dialog id="emoji_dialog" title="Emojis" loading={false}>
+                    <div :for={{_group, emojis} <- @emoji_groups} class="p-2 grid grid-cols-7 gap-4">
+                      <span
+                        :for={%Emoji{unicode: unicode} <- emojis}
+                        class="text-3xl cursor-pointer transition ease-in-out delay-50 duration-300 hover:-translate-1 hover:scale-110"
+                        phx-click="add_emoji"
+                        phx-value-unicode={unicode}
+                      >
+                        {unicode}
+                      </span>
                     </div>
-                  </div>
+                  </Components.dialog>
 
                   <%!-- Message type dialog --%>
                   <div
                     id="message_type_dialog"
-                    class="absolute px-4 py-2 m-2 z-20 flex flex-col gap-4 rounded bottom-full right-0 bg-slate-500 overflow-y-auto hidden"
+                    class="absolute px-4 py-2 m-2 z-20 flex flex-col gap-4 rounded-xl bottom-full right-0 bg-purple overflow-y-auto hidden"
                     phx-click-away={hide("#message_type_dialog")}
                   >
-                    <p class="text-md font-semibold">Message Type</p>
-                    <div class="flex flex-col gap-1">
-                      <div class="flex items-center gap-2">
-                        <Icon.chat />
-                        <span>Normal</span>
-                      </div>
-                      <button
-                        class={[
-                          "rounded-full h-10 w-10 text-white",
-                          if(@message_type == :text, do: "bg-indigo-500", else: "bg-gray-500")
-                        ]}
-                        type="button"
-                        phx-click="message_type:select"
-                        phx-value-type="text"
+                    <p class="text-md font-semibold text-white">Message Type</p>
+                    <Components.message_type_section message_type={:normal} title="Normal">
+                      <Components.message_type_button
+                        click="message_type:select"
+                        type="text"
+                        selected={@message_type == :text}
                       >
                         <Icon.chat class="m-auto" />
-                      </button>
-                    </div>
-                    <div class="flex flex-col gap-1">
+                      </Components.message_type_button>
+                    </Components.message_type_section>
+
+                    <Components.message_type_section message_type={:send_after} title="Send after">
                       <div class="flex items-center gap-2">
-                        <Icon.clock_history />
-                        <span>Send after</span>
-                      </div>
-                      <div class="flex items-center gap-2">
-                        <button
+                        <Components.message_type_button
                           :for={{variant, text, time} <- send_after_values()}
-                          class={[
-                            "rounded-full h-10 w-10 text-white text-xs",
-                            if(@message_type == :send_after and @message_variant == variant,
-                              do: "bg-indigo-500",
-                              else: "bg-gray-500"
-                            )
-                          ]}
-                          type="button"
-                          phx-click="message_type:select"
-                          phx-value-type="send_after"
-                          phx-value-variant={variant}
-                          phx-value-milliseconds={time}
+                          click="message_type:select"
+                          type="send_after"
+                          variant={variant}
+                          time={time}
+                          selected={@message_type == :send_after and @message_variant == variant}
                         >
                           {text}
-                        </button>
+                        </Components.message_type_button>
                       </div>
-                    </div>
-                    <div class="flex flex-col gap-1">
+                    </Components.message_type_section>
+
+                    <Components.message_type_section
+                      message_type={:destroy_after}
+                      title="Self destroy after"
+                    >
                       <div class="flex items-center gap-2">
-                        <Icon.stopwatch />
-                        <span>Self destroy after</span>
-                      </div>
-                      <div class="flex items-center gap-2">
-                        <button
+                        <Components.message_type_button
                           :for={{variant, text, time} <- send_after_values()}
-                          class={[
-                            "rounded-full h-10 w-10 text-white text-xs",
-                            if(@message_type == :destroy_after and @message_variant == variant,
-                              do: "bg-indigo-500",
-                              else: "bg-gray-500"
-                            )
-                          ]}
-                          type="button"
-                          phx-click="message_type:select"
-                          phx-value-type="destroy_after"
-                          phx-value-variant={variant}
-                          phx-value-milliseconds={time}
+                          click="message_type:select"
+                          type="destroy_after"
+                          variant={variant}
+                          time={time}
+                          selected={@message_type == :destroy_after and @message_variant == variant}
                         >
                           {text}
-                        </button>
+                        </Components.message_type_button>
                       </div>
-                    </div>
+                    </Components.message_type_section>
                   </div>
 
                   <input
                     id="message_box"
                     type="text"
                     name="message"
-                    class="w-full h-12 rounded-3xl border-slate-300 border pr-12 px-5 focus:border-indigo-700"
+                    class="w-full h-12 rounded-3xl border-slate-300 border pr-36 px-5 focus:border-indigo-700"
                     placeholder="Type your message..."
                     phx-debounce="50"
                     phx-hook="PasteScreenshot"
