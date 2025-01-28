@@ -109,12 +109,14 @@ defmodule RoomyWeb.RoomLive do
   # @TODO: Ability to create and be part of more than one Room
   # @TODO: Make it mobile friendly
   # @TODO: Store encrypted messages in DB. Figure out how to encrypt/decrypt them efficiently for a group chat
-  # @TODO: Pasting image url should display the image in the chat instead
   # @TODO: Ability to react to messages with any emoji
-  # @TODO: Make the UI prettier
   # @TODO: Fix issue when multiple windows of the same User is open Join message is duplicated
+  # @TODO: Encryption keys should be generated client side, encryption of message should be done client side as well
+
+  # Finishing up
+  # @TODO: Infinite scroll for gifs
   # @TODO: Finish up message date/time. It does not show day nor date.
-  # @TODO: Start to separate things into components.
+  # @TODO: Pasting image url should display the image in the chat instead
 
   @impl true
   def render(assigns) do
@@ -124,17 +126,17 @@ defmodule RoomyWeb.RoomLive do
         <h2 class="text-xl font-semibold text-gray-800">Leave Room</h2>
         <p class="text-gray-600 mt-2">
           Are you sure you want to leave this room? Doing so will delete your chat history. <br />
-          This cannot be undone.
+          <span class="font-semibold">This cannot be undone!</span>
         </p>
         <div class="flex justify-end space-x-3 mt-6">
           <button
-            class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition"
+            class="px-4 py-2 rounded-lg text-gray-800 bg-gray-200 hover:bg-gray-300 active:text-gray-800/80 transition"
             phx-click={hide_modal("confirm_modal")}
           >
             Cancel
           </button>
           <button
-            class="px-4 py-2 bg-indigo-500 text-white rounded-md hover:bg-indigo-600 transition"
+            class="px-4 py-2 rounded-lg text-white bg-my_green hover:bg-my_green_dark active:text-white/80 transition"
             phx-click="leave_room"
           >
             Confirm
@@ -144,52 +146,53 @@ defmodule RoomyWeb.RoomLive do
       <.async_result :let={name} assign={@name}>
         <%= if is_nil(name) do %>
           <div
-            class="bg-gray-100 flex items-center h-full justify-center"
+            class="bg-my_purple_very_dark flex flex-col items-center h-full justify-center"
             phx-remove={JS.focus(to: "#message_box")}
+            phx-mounted={JS.focus(to: "#name_input")}
           >
+            <h1 class="text-4xl font-semibold text-white">
+              Welcome to room
+            </h1>
+            <span class="text-3xl font-semibold text-white mb-6">{@room_id}</span>
             <div class="flex flex-col bg-white p-8 items-center gap-3 rounded-lg shadow-lg w-full max-w-md">
-              <div>
-                <h1 class="text-2xl font-semibold text-center text-gray-800 mb-6">
-                  Welcome to Room {@room_id}
-                </h1>
-              </div>
               <.form :let={f} class="flex flex-col gap-3" for={%{}} phx-submit="name:submit">
                 <.input
+                  id="name_input"
                   field={f[:name]}
                   type="text"
                   maxlength="24"
                   label="Name"
                   placeholder="Your name"
-                  autofocus
                   required
                 />
-                <.button class="bg-indigo-500 text-white py-2 px-4 rounded-lg shadow-md hover:bg-indigo-600 focus:outline-none">
+                <.button class="py-2 px-4 rounded-lg shadow-md text-white bg-my_green hover:bg-my_green_dark focus:outline-none">
                   Enter
                 </.button>
               </.form>
-              <.link navigate={~p"/"} class="underline text-indigo-500 hover:text-indigo-600 text-xs">
+              <.link
+                navigate={~p"/"}
+                class="underline text-xs text-my_purple hover:text-my_purple_dark"
+              >
                 Back
               </.link>
             </div>
           </div>
         <% else %>
           <div id="notify" class="flex flex-col h-full" phx-hook="BrowserNotification">
-            <%!-- <header class="flex items-center justify-between px-4 h-12 flex-shrink-0 shadow">
-              <h1 class="text-xl">Roomy</h1>
-              <button
-                id="copy_room_invite_button"
-                class="px-3 py-1 border rounded-lg border-slate-700 text-slate-700 hover:bg-slate-300 active:bg-slate-400"
-                phx-hook="Clipboard"
-                value={build_room_join_url(@room_id)}
-              >
-                Copy invite
-              </button>
-            </header> --%>
             <div class="flex grow overflow-y-auto">
               <%!-- Participants area --%>
-              <div class="flex flex-col items-center justify-between px-4 text-white bg-purple">
+              <div class="flex flex-col items-center justify-between px-4 text-white bg-my_purple_very_dark">
                 <div>
-                  <h2 class="text-3xl py-4 font-bold">Roomy</h2>
+                  <div class="py-4">
+                    <h2 class="text-3xl font-bold">Roomy</h2>
+                    <span class="text-xs font-semibold">
+                      {Map.values(@participants)
+                      |> Enum.filter(fn %Participant{online?: online?} -> online? end)
+                      |> length()}/{Map.values(@participants)
+                      |> Enum.reject(fn %Participant{left?: left?} -> left? end)
+                      |> length()} online members
+                    </span>
+                  </div>
                   <div class="columns-2 gap-2">
                     <div
                       :for={
@@ -198,37 +201,49 @@ defmodule RoomyWeb.RoomLive do
                           |> Map.values()
                           |> Enum.reject(fn %Participant{left?: left?} -> left? end)
                           |> Enum.sort(Participant)
+                          |> IO.inspect()
                       }
                       class={[
-                        "flex flex-col items-center gap-1 max-w-20 p-2 mb-2 rounded-xl cursor-default break-inside-avoid",
-                        if(not online?, do: "opacity-50"),
-                        if(online? and id != @id, do: "hover:bg-slate-600"),
-                        if(online? and id == @id, do: "hover:bg-yellow-800"),
-                        if(id == @id, do: "bg-yellow-900", else: "bg-slate-700")
+                        "flex flex-col items-center gap-1 max-w-20 p-2 mb-2 rounded-xl cursor-default break-inside-avoid bg-my_purple/70",
+                        if(online?, do: "hover:bg-my_purple/85", else: "opacity-50")
                       ]}
                     >
                       <div class="w-14 h-14 overflow-hidden rounded-2xl">
                         {raw(fetch_participant(@participants, id).avatar)}
                       </div>
-                      <div class="text-center">{name}</div>
+                      <div class="text-center text-sm font-semibold">{name}</div>
                     </div>
                   </div>
                 </div>
-                <button
-                  class="mx-4 my-4 px-4 py-1.5 py-1 border rounded-md border-red-600 text-red-600 hover:text-red-700 hover:border-red-700"
-                  phx-click={show_modal("confirm_modal")}
-                >
-                  Leave
-                </button>
+                <div class="mb-4 flex">
+                  <button
+                    id="copy_room_invite_button"
+                    class="px-4 py-2 rounded-lg font-semibold text-sm bg-my_blue text-slate-200 hover:bg-my_blue_dark hover:text-slate-100 active:text-slate-300"
+                    phx-hook="Clipboard"
+                    title="Copy Room invite"
+                    value={build_room_join_url(@room_id)}
+                  >
+                    <span class="flex items-center justify-center gap-1">
+                      <Icon.clipboard /> Invite
+                    </span>
+                  </button>
+                  <button
+                    class="ml-2 px-4 py-2 rounded-lg font-semibold text-sm bg-my_red text-slate-200 hover:bg-my_red_dark hover:text-slate-100 active:text-slate-300"
+                    title="Leave room"
+                    phx-click={show_modal("confirm_modal")}
+                  >
+                    Leave
+                  </button>
+                </div>
               </div>
 
               <%!-- Chat area --%>
-              <div class="flex flex-col relative grow bg-my_gray text-purple">
+              <div class="flex flex-col relative grow bg-my_purple_very_light text-my_purple_very_dark">
                 <%!-- Chat header --%>
-                <div class="absolute w-full h-20 px-8 py-4 bg-opacity-50 backdrop-blur z-50">
-                  <div class="text-2xl text-dark font-semibold">Office chat</div>
+                <%!-- <div class="absolute w-full h-20 px-8 py-4 bg-opacity-50 backdrop-blur z-50">
+                  <div class="text-2xl text-my_purple font-semibold">Office chat</div>
                   <div class="text-xs font-semibold">{map_size(@participants)} members</div>
-                </div>
+                </div> --%>
                 <%!-- Chat body --%>
                 <div
                   id="chat_history"
@@ -246,7 +261,7 @@ defmodule RoomyWeb.RoomLive do
                   }>
                     <%= if length(messages) == 1 and hd(messages).type == :system do %>
                       <div class="flex justify-center">
-                        <div class="flex items-center gap-2 py-2 px-4 text-xs text-white font-medium rounded-full bg-purple opacity-75">
+                        <div class="flex items-center gap-2 py-2 px-4 text-xs text-white font-medium rounded-full bg-my_purple_very_dark opacity-75">
                           <div class="w-6 h-6 overflow-hidden rounded-2xl">
                             {raw(sender_avatar)}
                           </div>
@@ -266,7 +281,7 @@ defmodule RoomyWeb.RoomLive do
                           </div>
                           <div class="flex flex-col flex-grow gap-1">
                             <div class={[
-                              "font-semibold text-dark",
+                              "font-semibold text-my_purple_very_dark",
                               if(sender_id == @id, do: "text-right")
                             ]}>
                               {sender_name}
@@ -318,7 +333,7 @@ defmodule RoomyWeb.RoomLive do
                               </div>
                               <%!-- Message bubble context menu --%>
                               <div class={[
-                                "flex items-center gap-1 h-fit rounded-2xl px-3 py-1 hidden bg-slate-500 z-10 text-white opacity-85 hover:shadow-lg hover:opacity-100 group-hover:flex"
+                                "flex items-center gap-1 h-fit rounded-2xl px-3 py-1 hidden bg-slate-500 z-10 text-white opacity-85 select-none hover:shadow-lg hover:opacity-100 group-hover:flex"
                               ]}>
                                 <button
                                   class="h-6 w-6 rounded cursor-pointer hover:bg-slate-400/70 hover:-translate-1 hover:scale-110"
@@ -393,12 +408,6 @@ defmodule RoomyWeb.RoomLive do
                   <%!-- Gif Dialog --%>
                   <Components.dialog id="gif_dialog" title="Gifs" loading={Enum.empty?(@gifs)}>
                     <div class="columns-2 gap-2 px-2">
-                      <span
-                        :if={Enum.empty?(@gifs)}
-                        class="absolute w-full h-full flex items-center justify-center"
-                      >
-                        <Icon.loading class="h-10 w-10 animate-spin bg-slate-500 text-slate-200" />
-                      </span>
                       <img
                         :for={
                           %Giphy{
@@ -411,7 +420,7 @@ defmodule RoomyWeb.RoomLive do
                             medium_height: medium_height
                           } <- @gifs
                         }
-                        class="rounded mb-2 box-border cursor-pointer hover:border-2 hover:border-indigo-500"
+                        class="rounded mb-2 box-border cursor-pointer hover:border-2 hover:border-my_green"
                         src={preview_url}
                         alt={title}
                         height={to_string(preview_height)}
@@ -439,7 +448,7 @@ defmodule RoomyWeb.RoomLive do
                   <%!-- Message type dialog --%>
                   <div
                     id="message_type_dialog"
-                    class="absolute px-4 py-2 m-2 z-20 flex flex-col gap-4 rounded-xl bottom-full right-0 bg-purple overflow-y-auto hidden"
+                    class="absolute px-4 py-2 m-2 z-20 flex flex-col gap-4 rounded-xl bottom-full right-0 bg-my_purple_very_dark overflow-y-auto hidden"
                     phx-click-away={hide("#message_type_dialog")}
                   >
                     <p class="text-md font-semibold text-white">Message Type</p>
@@ -491,7 +500,7 @@ defmodule RoomyWeb.RoomLive do
                     id="message_box"
                     type="text"
                     name="message"
-                    class="w-full h-12 rounded-3xl border-slate-300 border pr-36 px-5 focus:border-indigo-700"
+                    class="w-full h-12 pr-36 px-5 rounded-3xl border-slate-300 focus:border-my_purple"
                     placeholder="Type your message..."
                     phx-debounce="50"
                     phx-hook="PasteScreenshot"
@@ -500,7 +509,7 @@ defmodule RoomyWeb.RoomLive do
                   />
                   <button
                     class={[
-                      "absolute right-28 top-2 p-2 z-20 font-semibold text-xs rounded-md border border-indigo-500 text-indigo-500 transition ease-in-out delay-50 duration-300 hover:-translate-1 hover:scale-110 hover:bg-indigo-100"
+                      "absolute right-28 top-2 p-2 z-20 font-semibold text-xs rounded-md border border-my_purple text-my_purple transition ease-in-out delay-50 duration-300 hover:-translate-1 hover:scale-110 hover:bg-my_purple/20"
                     ]}
                     type="button"
                     phx-click={show("#gif_dialog")}
@@ -510,7 +519,7 @@ defmodule RoomyWeb.RoomLive do
                   <button
                     id="emoji_button"
                     class={[
-                      "absolute right-16 top-1 text-indigo-500 text-3xl transition ease-in-out delay-50 duration-300 hover:-translate-1 hover:scale-110"
+                      "absolute right-16 top-1 text-3xl transition ease-in-out delay-50 duration-300 hover:-translate-1 hover:scale-110"
                     ]}
                     type="button"
                     phx-hook="MouseEnter"
@@ -519,7 +528,7 @@ defmodule RoomyWeb.RoomLive do
                     {@emoji_button_unicode}
                   </button>
                   <button
-                    class="absolute right-5 top-1 h-10 w-10 rounded-full bg-indigo-600 text-stone-100 hover:bg-indigo-500"
+                    class="absolute right-5 top-1 h-10 w-10 rounded-full bg-my_purple text-stone-100 hover:bg-my_purple/90"
                     type="button"
                     phx-click={show("#message_type_dialog")}
                   >
@@ -800,11 +809,16 @@ defmodule RoomyWeb.RoomLive do
   def handle_event(
         "react",
         %{"message_id" => message_id},
-        %{assigns: %{id: id, room_id: room_id}} = socket
+        %{assigns: %{id: id, room_id: room_id, chat_history: messages}} = socket
       ) do
-    room_id
-    |> room_topic()
-    |> Bus.publish({:react, message_id, %Reaction{emoji: "👍️", participant_id: id}})
+    %Message{reactions: reactions} =
+      Enum.find(messages, fn %Message{id: id} -> id == message_id end)
+
+    if Enum.all?(reactions, fn %Reaction{participant_id: p_id} -> p_id != id end) do
+      room_id
+      |> room_topic()
+      |> Bus.publish({:react, message_id, %Reaction{emoji: "👍️", participant_id: id}})
+    end
 
     {:noreply, socket}
   end
@@ -935,16 +949,12 @@ defmodule RoomyWeb.RoomLive do
 
   @impl true
   def handle_info(
-        {Bus, {:react, message_id, %Reaction{participant_id: participant_id} = reaction}},
+        {Bus, {:react, message_id, %Reaction{} = reaction}},
         %{assigns: %{chat_history: messages}} = socket
       ) do
     updated_message_history =
       Enum.map(messages, fn %Message{id: m_id, reactions: reactions} = m ->
-        if m_id == message_id and
-             (Enum.empty?(reactions) or
-                Enum.any?(reactions, fn %Reaction{participant_id: p_id} ->
-                  p_id != participant_id
-                end)) do
+        if m_id == message_id do
           %Message{m | reactions: [reaction | reactions]}
         else
           m

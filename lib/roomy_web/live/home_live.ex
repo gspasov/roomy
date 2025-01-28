@@ -2,6 +2,7 @@ defmodule RoomyWeb.HomeLive do
   use RoomyWeb, :live_view
 
   alias Roomy.Utils
+  alias RoomyWeb.Icon
   alias RoomyWeb.RoomLive.LocalStorage
   alias Phoenix.LiveView.AsyncResult
 
@@ -10,16 +11,27 @@ defmodule RoomyWeb.HomeLive do
     ~H"""
     <div
       id="local_storage"
-      class="bg-gray-100 h-full flex items-center justify-center"
+      class="bg-my_purple_very_dark h-full flex flex-col gap-16 items-center justify-center"
       phx-hook="Parent"
     >
+      <div class="flex flex-col items-start text-white font-bold">
+        <span class="text-6xl">Welcome to</span>
+        <span class="text-8xl"> Roomy </span>
+        <span>Your local room client.</span>
+      </div>
+      <div
+        :if={@room_id.loading}
+        class="flex items-center justify-center bg-white rounded-lg min-w-96 px-16 h-64"
+      >
+        <Icon.loading class="h-10 w-10 animate-spin bg-white text-my_purple_very_dark" />
+      </div>
       <.async_result :let={room_id} assign={@room_id}>
         <div class="flex flex-col bg-white p-8 items-center gap-3 rounded-lg shadow-lg w-full max-w-md">
           <h1 class="text-2xl font-semibold text-center text-gray-800 mb-6">
             <%= if room_id do %>
               Welcome back
             <% else %>
-              Welcome to Roomy
+              So now what?
             <% end %>
           </h1>
           <p class="text-gray-600 text-center mb-6">
@@ -34,13 +46,13 @@ defmodule RoomyWeb.HomeLive do
             <div class="flex gap-4 w-full justify-around">
               <button
                 phx-click="leave_room"
-                class="text-sm font-semibold leading-6 text-white active:text-white/80 bg-red-600 text-white py-2 px-4 rounded-lg shadow-md hover:bg-red-700 focus:outline-none"
+                class="py-2 px-4 text-sm font-semibold leading-6 rounded-lg shadow-md text-white bg-my_red hover:bg-my_red_dark active:text-white/80 focus:outline-none"
               >
                 Leave
               </button>
               <.link
                 navigate={~p"/room/#{room_id}"}
-                class="text-sm font-semibold leading-6 text-white active:text-white/80 bg-green-600 text-white py-2 px-4 rounded-lg shadow-md hover:bg-green-700 focus:outline-none"
+                class="py-2 px-4 text-sm font-semibold leading-6 rounded-lg shadow-md text-white bg-my_green hover:bg-my_green_dark active:text-white/80 focus:outline-none"
               >
                 Rejoin
               </.link>
@@ -49,19 +61,21 @@ defmodule RoomyWeb.HomeLive do
               Leaving a Room will delete your saved chat history.
             </span>
           <% else %>
-            <.link
-              navigate={~p"/room/#{Roomy.Utils.generate_code()}"}
-              class="m-auto text-sm font-semibold leading-6 text-white active:text-white/80 bg-green-600 text-white py-2 px-4 rounded-lg shadow-md hover:bg-green-700 focus:outline-none"
-            >
-              Create a New Room
-            </.link>
-            <p>or</p>
-            <.link
-              navigate={~p"/room/join"}
-              class="m-auto text-sm font-semibold leading-6 text-white active:text-white/80 bg-blue-600 text-white py-2 px-4 rounded-lg shadow-md hover:bg-blue-700 focus:outline-none"
-            >
-              Join Room
-            </.link>
+            <div class="flex gap-4 w-full items-center justify-center">
+              <.link
+                navigate={~p"/room/join"}
+                class="m-auto py-2 px-4 text-sm font-semibold leading-6 rounded-lg shadow-md text-white bg-my_blue hover:bg-my_blue_dark active:text-white/80 focus:outline-none"
+              >
+                Join Room
+              </.link>
+              <span>or</span>
+              <.link
+                navigate={~p"/room/#{Roomy.Utils.generate_code()}"}
+                class="m-auto py-2 px-4 text-sm font-semibold leading-6 rounded-lg shadow-md text-white bg-my_green hover:bg-my_green_dark active:text-white/80 focus:outline-none"
+              >
+                Create Room
+              </.link>
+            </div>
           <% end %>
         </div>
       </.async_result>

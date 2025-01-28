@@ -8,14 +8,20 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        brand: "#FD4F00",
-        my_gray: "#F1F0F3",
-        bubble_1: "#EDDBDB",
-        bubble_2: "#D7EDC1",
-        bubble_1_dark: "#E4D1D1",
-        bubble_2_dark: "#CAE3B7",
-        purple: "#1B0036",
-        dark: "#250036",
+        bubble_1: "#E0F1CF",
+        bubble_1_dark: "#D4ECBC",
+        bubble_2: "#E0CFF1",
+        bubble_2_dark: "#D4BCEC",
+        my_red: "#AD3333",
+        my_red_dark: "#942B2B",
+        my_blue: "#33ADAD",
+        my_blue_dark: "#2B9494",
+        my_green: "#70AD33",
+        my_green_dark: "#60942B",
+        my_purple: "#7033AD",
+        my_purple_dark: "#602B94",
+        my_purple_very_dark: "#30154A",
+        my_purple_very_light: "#F9F5FC",
       },
       animation: {
         bounce: "bounce 1.5s infinite",

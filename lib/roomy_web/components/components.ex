@@ -13,12 +13,12 @@ defmodule RoomyWeb.Components do
     ~H"""
     <div
       id={@id}
-      class="absolute m-2 flex z-20 rounded-xl bottom-full right-0 bg-purple hidden"
+      class="absolute m-2 flex z-20 rounded-xl bottom-full right-0 bg-my_purple_very_dark hidden"
       phx-click-away={CoreComponents.hide("##{@id}")}
     >
       <%= if @loading do %>
         <span class="w-96 h-96 flex items-center justify-center">
-          <Icon.loading class="h-10 w-10 animate-spin bg-purple text-slate-200" />
+          <Icon.loading class="h-10 w-10 animate-spin bg-my_purple_very_dark text-my_green" />
         </span>
       <% else %>
         <h2 class="font-semibold text-3xl text-white px-4 py-2">{@title}</h2>
@@ -42,7 +42,7 @@ defmodule RoomyWeb.Components do
     <button
       class={[
         "rounded-full h-10 w-10 text-white text-xs",
-        if(@selected, do: "bg-indigo-500", else: "bg-gray-500 hover:bg-indigo-400")
+        if(@selected, do: "bg-my_purple", else: "bg-gray-500 hover:bg-my_purple/60")
       ]}
       type="button"
       phx-click={@click}
@@ -85,7 +85,7 @@ defmodule RoomyWeb.Components do
     ~H"""
     <div
       :if={@reply?}
-      class={["flex items-center text-xs text-dark", if(@replying?, do: "justify-end")]}
+      class={["flex items-center text-xs text-my_purple_very_dark", if(@replying?, do: "justify-end")]}
     >
       <Icon.reply_fill />
       <span>
@@ -114,11 +114,18 @@ defmodule RoomyWeb.Components do
           </span>
         </div>
       </div>
-      <div
-        :if={not @reply? && length(@message.reactions) > 0}
-        class="w-fit rounded-xl px-2 py-1 text-xs text-white font-bold bg-slate-400 -mt-4 ml-4"
-      >
-        👍️ {length(@message.reactions)}
+      <div class="flex ml-4 -mt-4 gap-1">
+        <div
+          :for={
+            {emoji, reactions} <- Enum.group_by(@message.reactions, fn %{emoji: emoji} -> emoji end)
+          }
+          :if={not @reply? && length(@message.reactions) > 0}
+          phx-click="react"
+          phx-value-message_id={@message.id}
+          class="w-fit rounded-xl px-2 py-1 text-xs text-white font-bold cursor-pointer select-none bg-slate-400 hover:bg-slate-500"
+        >
+          {emoji} {length(reactions)}
+        </div>
       </div>
     </div>
     """

@@ -6,11 +6,9 @@ defmodule RoomyWeb.JoinRoomLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <div class="bg-gray-100 h-full flex items-center justify-center">
+    <div class="bg-my_purple_very_dark h-full flex flex-col items-center justify-center">
+      <h1 class="mb-6 text-4xl font-semibold text-center text-white">Joining a Room</h1>
       <div class="flex flex-col bg-white p-8 items-center gap-3 rounded-lg shadow-lg w-full max-w-md">
-        <div>
-          <h1 class="text-2xl font-semibold text-center text-gray-800 mb-6">Joining a Room</h1>
-        </div>
         <.form :let={f} for={@form} phx-submit="join" class="flex flex-col gap-3">
           <.input
             field={f[:room_id]}
@@ -20,11 +18,11 @@ defmodule RoomyWeb.JoinRoomLive do
             autofocus
             required
           />
-          <.button class="bg-green-600 text-white py-2 px-4 rounded-lg shadow-md hover:bg-green-700 focus:outline-none">
+          <.button class="py-2 px-4 rounded-lg shadow-md text-white bg-my_blue hover:bg-my_blue_dark focus:outline-none">
             Next
           </.button>
         </.form>
-        <.link navigate={~p"/"} class="underline text-indigo-500 hover:text-indigo-600 text-xs">
+        <.link navigate={~p"/"} class="underline text-xs text-my_purple hover:text-my_purple_dark">
           Back
         </.link>
       </div>
