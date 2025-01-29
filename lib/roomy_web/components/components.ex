@@ -6,7 +6,7 @@ defmodule RoomyWeb.Components do
 
   attr :id, :string
   attr :title, :string, required: true
-  attr :loading, :boolean, default: true
+  attr :loading, :boolean, default: false
   slot :inner_block, required: true
 
   def dialog(assigns) do
@@ -114,12 +114,11 @@ defmodule RoomyWeb.Components do
           </span>
         </div>
       </div>
-      <div class="flex ml-4 -mt-4 gap-1">
+      <div :if={not @reply? && length(@message.reactions) > 0} class="flex ml-4 -mt-4 gap-1">
         <div
           :for={
             {emoji, reactions} <- Enum.group_by(@message.reactions, fn %{emoji: emoji} -> emoji end)
           }
-          :if={not @reply? && length(@message.reactions) > 0}
           phx-click="react"
           phx-value-message_id={@message.id}
           class="w-fit rounded-xl px-2 py-1 text-xs text-white font-bold cursor-pointer select-none bg-slate-400 hover:bg-slate-500"

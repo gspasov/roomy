@@ -25,6 +25,28 @@ defmodule Roomy.GiphyScrapper do
     Enum.map(:ets.tab2list(@table_name), fn {_, _, gif} -> gif end)
   end
 
+  def load_table do
+    ets_table_dir_path = Path.join([File.cwd!(), "priv", "static", "gif_database"])
+
+    ets_table_file_path =
+      [ets_table_dir_path, @table_filename]
+      |> Path.join()
+      |> String.to_charlist()
+
+    :ets.file2tab(ets_table_file_path)
+  end
+
+  def get_items(limit, start_id \\ nil) do
+    start_id = start_id || :ets.first(@table_name)
+    match_spec = [{{:"$1", :"$2", :"$3"}, [{:>, :"$1", start_id}], [:"$3"]}]
+
+    :ets.select(@table_name, match_spec, limit)
+    |> case do
+      {items, {_table, next_item_id, _, _, _, _, _, _}} -> {items, next_item_id}
+      {items, :"$end_of_table"} -> {items, :"$end_of_table"}
+    end
+  end
+
   @impl true
   def init([]) do
     todo = [
@@ -121,7 +143,7 @@ defmodule Roomy.GiphyScrapper do
 
     with :ok <- File.mkdir_p(ets_table_dir_path),
          {:error, _reason} <- :ets.file2tab(ets_table_file_path) do
-      :ets.new(@table_name, [:set, :named_table, read_concurrency: true])
+      :ets.new(@table_name, [:ordered_set, :named_table, read_concurrency: true])
     else
       error ->
         IO.inspect(error, label: "Error on init")

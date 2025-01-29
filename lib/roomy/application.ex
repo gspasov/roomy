@@ -23,6 +23,7 @@ defmodule Roomy.Application do
 
     # Load emojis ets table
     Roomy.Emoji.load_table()
+    Roomy.GiphyScrapper.load_table()
 
     # See https://hexdocs.pm/elixir/Supervisor.html
     # for other strategies and supported options
