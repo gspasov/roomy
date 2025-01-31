@@ -891,7 +891,7 @@ defmodule RoomyWeb.RoomLive do
 
   @impl true
   def handle_event("load_more_gifs", _params, %{assigns: %{gifs_next_start_id: next_id}} = socket) do
-    {items, new_next_id} = Giphy.Scrapper.get_items(1000, next_id)
+    {items, new_next_id} = Giphy.Scrapper.get_items(20, next_id)
 
     new_socket =
       socket
