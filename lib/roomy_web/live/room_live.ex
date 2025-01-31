@@ -111,7 +111,6 @@ defmodule RoomyWeb.RoomLive do
   # @TODO: Encryption keys should be generated client side, encryption of message should be done client side as well
 
   # Finishing up
-  # @TODO: Finish up message date/time. It does not show day nor date.
   # @TODO: Pasting image url should display the image in the chat instead
 
   @impl true
@@ -893,7 +892,7 @@ defmodule RoomyWeb.RoomLive do
 
   @impl true
   def handle_event("load_more_gifs", _params, %{assigns: %{gifs_next_start_id: next_id}} = socket) do
-    {items, new_next_id} = Roomy.GiphyScrapper.get_items(1000, next_id)
+    {items, new_next_id} = Giphy.Scrapper.get_items(1000, next_id)
 
     new_socket =
       socket

@@ -108,9 +108,7 @@ defmodule RoomyWeb.Components do
         <div class="flex text-center items-center justify-end text-xs gap-1 text-slate-600 text-right">
           <Icon.stopwatch :if={@message.kind == :destroy_after} />
           <span class="leading-[11px]">
-            {@message.sent_at
-            |> DateTime.shift_zone!(@timezone)
-            |> Calendar.strftime("%H:%M")}
+            {format_date(@message.sent_at, @timezone)}
           </span>
         </div>
       </div>
@@ -128,5 +126,21 @@ defmodule RoomyWeb.Components do
       </div>
     </div>
     """
+  end
+
+  defp format_date(date_time, timezone) do
+    local_date_time = DateTime.shift_zone!(date_time, timezone)
+
+    format =
+      date_time
+      |> DateTime.to_date()
+      |> then(&Date.diff(&1, Date.utc_today()))
+      |> then(fn
+        0 -> "%H:%M"
+        -1 -> "Yesterday at %H:%M"
+        _ -> "%d/%m/%y %H:%M"
+      end)
+
+    Calendar.strftime(local_date_time, format)
   end
 end
