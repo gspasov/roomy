@@ -95,11 +95,8 @@ defmodule RoomyWeb.RoomLive do
   end
 
   # GIF related todos
-  # @TODO: Store in DB all Gifs so that we don't use that much the API
-  # @TODO: Add scroll for Gifs
   # @TODO: Add search bar for Gifs
   # @TODO: Add GIPHY name in the gifs corner (for brand recognition)
-  # @TODO: Make dynamic loading of GIFs
   # @TODO: Add ability to mark a GIF as favorite. Add section for favorite GIFs so User can choose from there.
 
   # Emoji related
@@ -114,7 +111,6 @@ defmodule RoomyWeb.RoomLive do
   # @TODO: Encryption keys should be generated client side, encryption of message should be done client side as well
 
   # Finishing up
-  # @TODO: Infinite scroll for gifs
   # @TODO: Finish up message date/time. It does not show day nor date.
   # @TODO: Pasting image url should display the image in the chat instead
 
@@ -408,7 +404,8 @@ defmodule RoomyWeb.RoomLive do
                   <%!-- Gif Dialog --%>
                   <Components.dialog id="gif_dialog" title="Gifs">
                     <div
-                      class="columns-2 gap-2 px-2"
+                      class="grid justify-center auto-rows-[0px] gap-[8px]"
+                      style="grid-template-columns: repeat(auto-fill, 180px);"
                       id="gifs"
                       phx-update="stream"
                       phx-viewport-bottom="load_more_gifs"
@@ -427,11 +424,12 @@ defmodule RoomyWeb.RoomLive do
                            }} <- @streams.gifs
                         }
                         id={dom_id}
-                        class="rounded mb-2 box-border cursor-pointer hover:border-2 hover:border-my_green"
+                        class="rounded box-border cursor-pointer hover:border-2 hover:border-my_green"
+                        style={"grid-row-end: span #{round((String.to_integer(preview_height)+8) / 8)}; height: #{preview_height}px;"}
                         src={preview_url}
                         alt={title}
-                        height={to_string(preview_height)}
-                        width={to_string(preview_width)}
+                        height={preview_height}
+                        width={preview_width}
                         phx-click="send_gif"
                         phx-value-gif={render_gif(medium_url, medium_width, medium_height)}
                       />
@@ -571,7 +569,6 @@ defmodule RoomyWeb.RoomLive do
         message_variant: nil,
         message_timer: nil,
         gifs_next_start_id: nil,
-        giphy_client: Giphy.client(),
         emoji_groups: emoji_groups,
         emoji_button_unicode: get_random_emoji_unicode(emoji_groups),
         timezone: socket.private[:connect_params]["timezone"],
@@ -896,20 +893,12 @@ defmodule RoomyWeb.RoomLive do
 
   @impl true
   def handle_event("load_more_gifs", _params, %{assigns: %{gifs_next_start_id: next_id}} = socket) do
-    IO.inspect("load_more_gifs called!")
+    {items, new_next_id} = Roomy.GiphyScrapper.get_items(1000, next_id)
 
     new_socket =
-      case Roomy.GiphyScrapper.get_items(10, next_id) do
-        {items, :"$end_of_table"} ->
-          # @TODO: Fix this
-          # IO.inspect(other, label: "ERROR")
-          socket
-
-        {items, new_next_id} ->
-          socket
-          |> stream(:gifs, items)
-          |> assign(gifs_next_start_id: new_next_id)
-      end
+      socket
+      |> stream(:gifs, items)
+      |> assign(gifs_next_start_id: new_next_id)
 
     {:noreply, new_socket}
   end
