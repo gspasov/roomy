@@ -1,11 +1,11 @@
 defmodule RoomyWeb.RoomLive do
-  alias Roomy.Emoji
-  alias RoomyWeb.Icon
   use RoomyWeb, :live_view
 
   alias Roomy.Giphy
   alias Roomy.Crypto
   alias Roomy.Bus
+  alias Roomy.Emoji
+  alias RoomyWeb.Icon
   alias Phoenix.LiveView.AsyncResult
   alias RoomyWeb.Components
 
@@ -107,11 +107,7 @@ defmodule RoomyWeb.RoomLive do
   # @TODO: Make it mobile friendly
   # @TODO: Store encrypted messages in DB. Figure out how to encrypt/decrypt them efficiently for a group chat
   # @TODO: Ability to react to messages with any emoji
-  # @TODO: Fix issue when multiple windows of the same User is open Join message is duplicated
   # @TODO: Encryption keys should be generated client side, encryption of message should be done client side as well
-
-  # Finishing up
-  # @TODO: Pasting image url should display the image in the chat instead
 
   @impl true
   def render(assigns) do
@@ -1220,7 +1216,11 @@ defmodule RoomyWeb.RoomLive do
   end
 
   defp render_message(%Message{content: content}) do
-    emoji_enlarger(content)
+    content
+    |> emoji_enlarger()
+    |> embed_image_links()
+    |> IO.inspect()
+    |> raw()
   end
 
   defp emoji_enlarger(text) do
@@ -1231,7 +1231,32 @@ defmodule RoomyWeb.RoomLive do
     |> Emoji.replace_with(fn emoji_unicode ->
       "<span class=\"text-2xl\">#{emoji_unicode}</span>"
     end)
-    |> raw()
+  end
+
+  defp extract_links(text) do
+    regex = ~r/\bhttps?:\/\/[^\s<>"']+\b/
+    Regex.scan(regex, text) |> List.flatten()
+  end
+
+  defp image_link?(url) do
+    image_extensions = ~w(.jpg .jpeg .png .gif .bmp .webp .svg)
+    Enum.any?(image_extensions, &String.ends_with?(url, &1))
+  end
+
+  defp embed_image_links(text) do
+    links = extract_links(text)
+
+    Enum.reduce(links, text, fn link, acc ->
+      if image_link?(link) do
+        String.replace(
+          acc,
+          link,
+          "<img class=\"mb-1 rounded-lg\"src=\"#{link}\" style=\"max-width: 100%; height: auto;\">"
+        )
+      else
+        acc
+      end
+    end)
   end
 
   defp format_message(%Message{type: :system, kind: kind}, sender_name) do
