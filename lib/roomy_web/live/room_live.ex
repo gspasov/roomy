@@ -413,9 +413,7 @@ defmodule RoomyWeb.RoomLive do
                              preview_url: preview_url,
                              preview_width: preview_width,
                              preview_height: preview_height,
-                             medium_url: medium_url,
-                             medium_width: medium_width,
-                             medium_height: medium_height
+                             medium_url: medium_url
                            }} <- @streams.gifs
                         }
                         id={dom_id}
@@ -426,7 +424,7 @@ defmodule RoomyWeb.RoomLive do
                         height={preview_height}
                         width={preview_width}
                         phx-click="send_gif"
-                        phx-value-gif={render_gif(medium_url, medium_width, medium_height)}
+                        phx-value-gif={render_image(medium_url, "Gif")}
                       />
                     </div>
                   </Components.dialog>
@@ -496,17 +494,17 @@ defmodule RoomyWeb.RoomLive do
                     </Components.message_type_section>
                   </div>
 
-                  <input
+                  <textarea
                     id="message_box"
                     type="text"
                     name="message"
-                    class="w-full h-12 pr-36 px-5 rounded-3xl border-slate-300 focus:border-my_purple"
+                    class="w-full h-12 max-h-64 pr-36 px-5 rounded-3xl border-slate-300 resize-none focus:border-my_purple"
                     placeholder="Type your message..."
                     phx-debounce="50"
-                    phx-hook="PasteScreenshot"
+                    phx-update="ignore"
+                    phx-hook="ChatInput"
                     autocomplete="off"
-                    value={@message_input}
-                  />
+                  ></textarea>
                   <button
                     class={[
                       "absolute right-28 top-2 p-2 z-20 font-semibold text-xs rounded-md border border-my_purple text-my_purple transition ease-in-out delay-50 duration-300 hover:-translate-1 hover:scale-110 hover:bg-my_purple/20"
@@ -773,7 +771,12 @@ defmodule RoomyWeb.RoomLive do
         %{"unicode" => unicode},
         %{assigns: %{message_input: input}} = socket
       ) do
-    {:noreply, assign(socket, message_input: input <> "#{unicode} ")}
+    new_socket =
+      socket
+      |> assign(message_input: input <> "#{unicode} ")
+      |> push_event("add_emoji", %{unicode: unicode})
+
+    {:noreply, new_socket}
   end
 
   @impl true
@@ -843,7 +846,7 @@ defmodule RoomyWeb.RoomLive do
         type: :render,
         kind: :image,
         sender_id: sender_id,
-        content: "<img src=\"#{base64_image}\" alt=\"Screenshot\" class=\"rounded\" />"
+        content: render_image(base64_image, "Screenshot")
       },
       room_id,
       participants
@@ -1219,8 +1222,14 @@ defmodule RoomyWeb.RoomLive do
     content
     |> emoji_enlarger()
     |> embed_image_links()
-    |> IO.inspect()
+    |> convert_new_lines()
     |> raw()
+  end
+
+  defp convert_new_lines(text) do
+    text
+    |> String.split("\n")
+    |> Enum.join("<br/>")
   end
 
   defp emoji_enlarger(text) do
@@ -1248,11 +1257,7 @@ defmodule RoomyWeb.RoomLive do
 
     Enum.reduce(links, text, fn link, acc ->
       if image_link?(link) do
-        String.replace(
-          acc,
-          link,
-          "<img class=\"mb-1 rounded-lg\"src=\"#{link}\" style=\"max-width: 100%; height: auto;\">"
-        )
+        String.replace(acc, link, render_image(link))
       else
         acc
       end
@@ -1340,8 +1345,8 @@ defmodule RoomyWeb.RoomLive do
     "/room/#{room_id}/participant/#{participant_id}"
   end
 
-  defp render_gif(url, width, height) do
-    "<img src=\"#{url}\" width=\"#{width}\" height=\"#{height}\" class=\"rounded mb-1\"/>"
+  defp render_image(src, alt \\ "") do
+    "<img src=\"#{src}\" class=\"mb-1 max-w-full h-auto rounded-lg \" alt=\"#{alt}\"/>"
   end
 
   defp send_after_values do

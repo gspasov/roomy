@@ -47,9 +47,37 @@ Hooks.ScrollToBottom = {
   },
 };
 
-Hooks.PasteScreenshot = {
+Hooks.ChatInput = {
   mounted() {
-    this.el.addEventListener("paste", async (event) => {
+    const textarea = this.el;
+    const defaultTextareaHeight = 48;
+
+    this.handleEvent("add_emoji", ({ unicode }) => {
+      textarea.value = textarea.value + " " + unicode;
+    });
+
+    textarea.addEventListener("keydown", (event) => {
+      if (event.key == "Enter" && !event.shiftKey) {
+        event.preventDefault();
+        this.pushEvent("message_box:submit");
+        textarea.value = "";
+        textarea.style.height = `${defaultTextareaHeight}px`;
+      }
+    });
+
+    textarea.addEventListener("input", () => {
+      if (
+        textarea.scrollHeight <= defaultTextareaHeight ||
+        textarea.value == ""
+      ) {
+        textarea.style.height = `${defaultTextareaHeight}px`;
+      } else {
+        textarea.style.height = "auto";
+        textarea.style.height = Math.min(textarea.scrollHeight, 240) + 2 + "px";
+      }
+    });
+
+    textarea.addEventListener("paste", async (event) => {
       // Check if the clipboard has image data
       const items = event.clipboardData?.items;
       if (!items) return;
