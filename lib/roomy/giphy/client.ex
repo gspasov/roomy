@@ -1,4 +1,5 @@
 defmodule Roomy.Giphy.Client do
+  alias Roomy.HttpClient
   alias Roomy.Giphy
 
   require Logger
@@ -7,13 +8,8 @@ defmodule Roomy.Giphy.Client do
   @required_params %{api_key: @api_key}
   @default_params %{limit: 2}
 
-  def client() do
-    middleware = [
-      Tesla.Middleware.JSON,
-      {Tesla.Middleware.BaseUrl, "https://api.giphy.com/v1/gifs"}
-    ]
-
-    Tesla.client(middleware)
+  def client do
+    HttpClient.new("https://api.giphy.com/v1/gifs")
   end
 
   def trending_gifs(client, params \\ @default_params) do

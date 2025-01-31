@@ -9,6 +9,7 @@ defmodule Roomy.Emoji do
   @table_filename "#{@version}.ets"
   @lookup_table :emojis_lookup
 
+  alias Roomy.HttpClient
   alias Roomy.Utils
 
   require Logger
@@ -29,7 +30,7 @@ defmodule Roomy.Emoji do
       |> Path.join()
       |> String.to_charlist()
 
-    client = client()
+    client = HttpClient.new("https://#{@host}")
 
     with :ok <- File.mkdir_p(ets_table_dir_path),
          {:error, _reason} <- :ets.file2tab(ets_table_file_path),
@@ -104,15 +105,6 @@ defmodule Roomy.Emoji do
         :ets.insert(table, {key, shortcode, hex_code, unicode})
       end)
     end)
-  end
-
-  defp client() do
-    middleware = [
-      Tesla.Middleware.JSON,
-      {Tesla.Middleware.BaseUrl, "https://#{@host}"}
-    ]
-
-    Tesla.client(middleware)
   end
 
   defp fetch_emojies(client) do
